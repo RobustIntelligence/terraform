@@ -1,0 +1,260 @@
+rime:
+  domain: "${domain}"
+  verbose: ${verbose}
+  acmCertArn: ${acm_cert_arn}
+  apiKey: ${api_key}
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetMemoryUtilizationPercentage: 80
+  targetCPUUtilizationPercentage: 80
+replicaCount: 3 #Ignored if autoscaling enabled.
+
+resources:
+  requests:
+    memory: "100Mi"
+    cpu: "100m"
+  limits:
+    memory: "500Mi"
+    cpu: "500m"
+
+modelTestResources:
+  requests:
+    memory: "4000Mi"
+    cpu: "1500m"
+
+backendImage:
+  name: "${docker_backend_image}:${version}"
+  pullPolicy: "${pull_policy}"
+
+frontendImage:
+  name: "${docker_frontend_image}:${version}"
+  pullPolicy: "${pull_policy}"
+
+modelTestImage:
+  # This is the rime-engine configuration for the staging environment.
+  name: "${docker_model_testing_image}:${version}"
+  pullPolicy: "${pull_policy}"
+
+firewall:
+  enabled: ${enable_firewall}
+
+# TODO(blaine): Allow image pull secrets to be customized to the image.
+imagePullSecrets:
+  - name: ${docker_backend_secret_name}
+
+rimeJwt: ${rime_jwt}
+
+datadogFrontendClientToken: ${datadog_frontend_client_token}
+
+rimeExtras:
+  vouch: ${enable_vouch}
+
+vouch:
+  config:
+    vouch:
+%{ if length(vouch_whitelist_domains) < 1 ~}
+      allowAllUsers: true
+%{ else ~}
+      allowAllUsers: false
+%{ endif ~}
+      cookie:
+        name: "rimeVouchCookie"
+        domain: "${domain}"
+        secure: true
+        httpOnly: true
+        maxAge: 14400
+      # TODO(blaine): Add this as part of our Okta interface or find a better way to provide this secret.
+      jwt:
+        secret: "${jwt_secret}"
+      post_logout_redirect_uris:
+        - "https://rime.{domain}"
+%{ if length(vouch_whitelist_domains) >= 1 ~}
+      domains:
+%{ for vd in vouch_whitelist_domains ~}
+      - ${vd}
+%{ endfor ~}
+%{ endif ~}
+
+    oauth:
+      provider: oidc
+      client_id: "${oauth_client_id}"
+      client_secret: "${oauth_client_secret}"
+      callback_urls: [
+        "https://rime-login.${domain}/auth",
+      ]
+      auth_url: ${oauth_auth_url}
+      token_url: ${oauth_token_url}
+      user_info_url: ${oauth_user_info_url}
+      scopes:
+        - openid
+        - email
+        - profile
+  ingress:
+    enabled: false
+  podAnnotations:
+    ad.datadoghq.com/vouch.logs: >-
+      [{
+        "service": "vouch",
+        "log_processing_rules": [{
+          "type": "exclude_at_match",
+          "name": "exclude_health_check",
+          "pattern" : "\\|200\\|.*\\/healthcheck"
+        }]
+      }]
+
+
+mongodb:
+  architecture: "replicaset"
+  replicaCount: 3
+  arbiter:
+    enabled: false
+  auth:
+    enabled: false
+  service:
+    port: 27017
+  replicaSetName: rs0
+  resources:
+    requests:
+      memory: "3000Mi"
+      cpu: "1500m"
+    limits:
+      memory: "8000Mi"
+      cpu: "2000m"
+  podAnnotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+    ad.datadoghq.com/mongodb.check_names: '["mongo"]'
+    ad.datadoghq.com/mongodb.init_configs: '[{}]'
+    ad.datadoghq.com/mongodb.instances: |
+      [
+        {
+          "hosts": ["%%host%%:%%port%%"],
+          "database": "rime-store"
+        }
+      ]
+    ad.datadoghq.com/mongodb.logs: '[{"source":"mongodb","service":"mongodb"}]'
+  persistence:
+    enabled: true
+    storageClass: "${mongo_storage_class}"
+    size: "${mongo_db_size}"
+
+# The following overrides are AWS specific.
+imageRegistry:
+  create: ${image_registry_config.enable}
+%{ if image_registry_config.enable ~}
+  ecrRegistryID: "${image_registry_config.registry_id}"
+  repositoryPrefix: "${image_registry_config.repository_prefix}"
+  dockerSecretName: "${docker_backend_secret_name}"
+  # Specification of the container image used for running the image builder jobs.
+  image:
+    name: "${docker_image_builder_image}:${version}"
+    pullPolicy: "${pull_policy}"
+  rbac:
+    serverAccount:
+      # Annotations required to associate the image registry server account
+      # with the AWS IAM role used to create, access and modify RIME's ECR repositories.
+      annotations: {
+        eks.amazonaws.com/role-arn: ${image_registry_config.repo_manager_role_arn}
+      }
+    jobAccount:
+      # Annotations required to associate the image builder job account
+      # with the AWS IAM role used to push and pull images to RIME's ECR repositories.
+      annotations: {
+        eks.amazonaws.com/role-arn: ${image_registry_config.image_builder_role_arn}
+      }
+%{ endif ~}
+
+# The following overrides are AWS specific.
+modelTesting:
+  allowExternalCustomImages: ${image_registry_config.allow_external_custom_images}
+  rbac:
+    modelTestJobAccount:
+      # Annotations required to associate the modelTestJob service account
+      # with the AWS IAM role used to access S3 resources.
+      annotations: {
+        eks.amazonaws.com/role-arn: ${s3_role_arn}
+      }
+
+blobStore:
+  rbac:
+    create: ${use_blob_store}
+    blobStoreAccount:
+      create: ${use_blob_store}
+      # Account used by services that need access to blob storage.
+      # This account has special priveleges to read and write to S3 bucket used for blob storage.
+      annotations: {
+        eks.amazonaws.com/role-arn: ${s3_blob_store_role_arn}
+      }
+  # The bucket name of the S3 bucket used as the blob storage.
+  storageBucketName: ${s3_blob_store_bucket_name}
+  endpoint: "s3.amazonaws.com"
+  type: "s3"
+
+ingress-nginx:
+  controller:
+    admissionWebhooks:
+      enabled: false
+    scope:
+      enabled: true
+      namespace: ${namespace}
+    service:
+      targetPorts:
+        http: http
+        https: http
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
+        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+        service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+        service.beta.kubernetes.io/aws-load-balancer-type: "external"
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+        service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+        service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
+        ${lb_security_groups}
+        ${lb_tags}
+    config:
+      force-ssl-redirect: "false"
+      ssl-redirect: "false"
+
+kong:
+  ingressController:
+    enabled: true
+    installCRDs: false
+    watchNamespaces:
+      - ${namespace}
+  proxy:
+    enabled: true
+    http:
+      parameters:
+        - http2
+    tls:
+      overrideServiceTargetPort: 8000
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
+      service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "kong-proxy-tls"
+      service.beta.kubernetes.io/aws-load-balancer-type: "external"
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "*"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
+      service.beta.kubernetes.io/aws-load-balancer-alpn-policy: "HTTP2Preferred"
+      ${lb_security_groups}
+      ${lb_tags}
+
+redis:
+  architecture: "standalone"
+  auth:
+    enabled: false
+  master:
+    resources:
+      requests:
+        memory: "500Mi"
+        cpu: "500m"
+      limits:
+        memory: "1000Mi"
+        cpu: "1000m"
+  podAnnotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+
+datasetManager:
+  useFileUploadService: ${use_file_upload_service}
