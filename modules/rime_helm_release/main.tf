@@ -40,7 +40,7 @@ resource "local_file" "helm_values" {
     docker_frontend_image         = var.rime_docker_frontend_image
     docker_image_builder_image    = var.rime_docker_image_builder_image
     docker_model_testing_image    = var.rime_docker_model_testing_image
-    domain                        = var.domain
+    domain                        = var.domain == "" ? "placeholder" : var.domain
     enable_firewall               = var.enable_firewall
     enable_vouch                  = var.enable_vouch
     image_registry_config         = var.image_registry_config
