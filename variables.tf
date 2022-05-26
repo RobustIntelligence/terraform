@@ -429,3 +429,9 @@ variable "enable_api_key_auth" {
   type        = bool
   default     = true
 }
+
+variable "enable_auth" {
+  description = "Use authentication for the frontend"
+  type        = bool
+  default     = true
+}

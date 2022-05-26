@@ -152,6 +152,7 @@ module "rime_helm_release" {
   vouch_whitelist_domains         = var.vouch_whitelist_domains
   ip_allowlist                    = var.ip_allowlist
   enable_api_key_auth             = var.enable_api_key_auth
+  enable_auth                     = var.enable_auth
 
   tags = local.tags
 
