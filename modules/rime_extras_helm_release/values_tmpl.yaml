@@ -107,7 +107,7 @@ velero:
     mongodb-backup:
       disabled: false
       schedule: "${velero_backup_schedule}"
-      useOwnerReferencesInBackup: true
+      useOwnerReferencesInBackup: false
       template:
         ttl: "${velero_backup_ttl}"
         includedResources:
