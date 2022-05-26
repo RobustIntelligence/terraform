@@ -100,11 +100,6 @@ variable "rime_jwt" {
   type        = string
 }
 
-variable "datadog_frontend_client_token" {
-  description = "Datadog frontend client token."
-  type        = string
-}
-
 variable "rime_repository" {
   description = "Repository URL where to locate the requested RIME chart for the given `rime_version`."
   type        = string
@@ -180,15 +175,15 @@ variable "admin_api_key" {
   type        = string
 }
 
-variable "enable_firewall" {
-  description = "Enable rime firewall"
-  type        = bool
-}
-
 variable "vouch_whitelist_domains" {
   description = "List of domains to add to the vouch domains whitelist. If no whitelist domains are specified, all domains will be allowed."
   type        = list(string)
   default     = []
+}
+
+variable "user_pilot_flow" {
+  description = "A unique flow ID shown when choosing the option of \"Trigger manually\" on userpilot dashboard"
+  type        = string
 }
 
 variable "enable_vouch" {
@@ -199,4 +194,18 @@ variable "enable_vouch" {
 variable "internal_lbs" {
   description = "Whether or not the load balancers should be spun up as internal."
   type        = bool
+}
+
+variable "ip_allowlist" {
+  # Note: external client IP's are preserved by load balancer. You may also want to include the external IP for the
+  # cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server using that IP.
+  description = "CIDR's to add to allowlist for all ingresses. If not specified, all IP's are allowed."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_api_key_auth" {
+  description = "Use api keys to authenticate api requests"
+  type        = bool
+  default     = true
 }

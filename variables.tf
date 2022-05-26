@@ -368,12 +368,6 @@ variable "rime_secrets_name" {
   default     = "rime-secrets"
 }
 
-variable "enable_firewall" {
-  description = "Enable rime firewall."
-  type        = bool
-  default     = false
-}
-
 variable "use_blob_store" {
   description = "Whether to use blob store for the cluster."
   type        = bool
@@ -390,6 +384,12 @@ variable "eks_cluster_node_iam_policies" {
   description = "Policies to attach to eks worker nodes."
   type        = list(string)
   default     = []
+}
+
+variable "user_pilot_flow" {
+  description = "A unique flow ID shown when choosing the option of \"Trigger manually\" on userpilot dashboard"
+  type        = string
+  default     = ""
 }
 
 variable "vouch_whitelist_domains" {
@@ -412,6 +412,20 @@ variable "internal_lbs" {
 
 variable "use_dns" {
   description = "Whether or not we we should set up DNS for your cluster"
+  type        = bool
+  default     = true
+}
+
+variable "ip_allowlist" {
+  # Note: external client IP's are preserved by load balancer. You may also want to include the external IP for the
+  # cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server using that IP.
+  description = "CIDR's to add to allowlist for all ingresses. If not specified, all IP's are allowed."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_api_key_auth" {
+  description = "Use api keys to authenticate api requests"
   type        = bool
   default     = true
 }

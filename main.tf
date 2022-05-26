@@ -114,7 +114,6 @@ module "rime_helm_release" {
   admin_api_key               = local.json_secrets["admin_api_key"]
   create_managed_helm_release = var.create_managed_helm_release
   domain                      = each.value.primary ? local.rime_domain : "${each.key}-${local.rime_domain}"
-  enable_firewall             = var.enable_firewall
   enable_vouch                = var.enable_vouch
   image_registry_config = {
     enable                       = var.image_registry_config.enable
@@ -141,7 +140,6 @@ module "rime_helm_release" {
   rime_docker_model_testing_image = var.rime_docker_model_testing_image
   rime_docker_secret_name         = var.rime_docker_secret_name
   rime_jwt                        = local.json_secrets["rime_jwt"]
-  datadog_frontend_client_token   = local.json_secrets["datadog_frontend_client_token"]
   rime_repository                 = var.rime_repository
   rime_version                    = var.rime_version
   s3_reader_role_arn              = module.s3_iam[each.key].s3_reader_role_arn
@@ -149,8 +147,11 @@ module "rime_helm_release" {
   s3_blob_store_role_arn          = var.use_blob_store ? module.s3_blob_store[each.key].s3_blob_store_role_arn : ""
   s3_blob_store_bucket_name       = var.use_blob_store ? module.s3_blob_store[each.key].s3_blob_store_bucket_name : ""
   use_file_upload_service         = var.use_file_upload_service
+  user_pilot_flow                 = var.user_pilot_flow
   verbose                         = var.verbose
   vouch_whitelist_domains         = var.vouch_whitelist_domains
+  ip_allowlist                    = var.ip_allowlist
+  enable_api_key_auth             = var.enable_api_key_auth
 
   tags = local.tags
 
@@ -186,7 +187,7 @@ module "rime_extras_helm_release" {
   velero_backup_namespaces    = keys(local.all_k8s_namespaces)
   velero_backup_ttl           = var.velero_backup_ttl
   velero_backup_schedule      = var.velero_backup_schedule
-  datadog_api_key             = local.json_secrets["datadog-api-key"]
+  datadog_api_key             = lookup(local.json_secrets, "datadog-api-key", "")
   rime_user                   = local.json_secrets["rime-user"]
   rime_repository             = var.rime_repository
   rime_version                = var.rime_version

@@ -2,7 +2,13 @@ rime:
   domain: "${domain}"
   verbose: ${verbose}
   acmCertArn: ${acm_cert_arn}
-  apiKey: ${api_key}
+%{ if length(ip_allowlist) > 0 ~}
+  ipAllowlist:
+%{ for ip in ip_allowlist ~}
+  - ${ip}
+%{ endfor ~}
+%{ endif ~}
+  enableApiKeyAuth: ${enable_api_key_auth}
 
 autoscaling:
   enabled: true
@@ -39,7 +45,7 @@ modelTestImage:
   pullPolicy: "${pull_policy}"
 
 firewall:
-  enabled: ${enable_firewall}
+  enabled: true
 
 # TODO(blaine): Allow image pull secrets to be customized to the image.
 imagePullSecrets:
@@ -47,7 +53,7 @@ imagePullSecrets:
 
 rimeJwt: ${rime_jwt}
 
-datadogFrontendClientToken: ${datadog_frontend_client_token}
+userpilotFlow: ${user_pilot_flow}
 
 rimeExtras:
   vouch: ${enable_vouch}
@@ -211,6 +217,9 @@ ingress-nginx:
         service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
         service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
+%{ if length(ip_allowlist) > 0 ~}
+        service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+%{ endif ~}
         ${lb_security_groups}
         ${lb_tags}
     config:
@@ -238,8 +247,15 @@ kong:
       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
       service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
       service.beta.kubernetes.io/aws-load-balancer-alpn-policy: "HTTP2Preferred"
+%{ if length(ip_allowlist) > 0 ~}
+      service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+%{ endif ~}
       ${lb_security_groups}
       ${lb_tags}
+  plugins:
+    configMaps: # change this to 'secrets' if you created a secret
+      - name: kong-plugin-custom-key-auth
+        pluginName: custom-key-auth
 
 redis:
   architecture: "standalone"

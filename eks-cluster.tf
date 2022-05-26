@@ -189,6 +189,22 @@ resource "kubernetes_secret" "notifications-secrets" {
   depends_on = [kubernetes_namespace.auto]
 }
 
+resource "kubernetes_secret" "admin-secrets" {
+  // Only create if admin user is configured
+  for_each = lookup(local.json_secrets, "admin_username", "") != "" ? { for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace => k8s_namespace } : {}
+
+  metadata {
+    name      = "rime-admin-secret"
+    namespace = each.key
+  }
+
+  data = {
+    admin_username      = local.json_secrets["admin_username"]
+    admin_password   = local.json_secrets["admin_password"]
+  }
+  depends_on = [kubernetes_namespace.auto]
+}
+
 resource "aws_ec2_tag" "vpc_tags" {
   resource_id = var.vpc_id
   key         = "kubernetes.io/cluster/${var.cluster_name}"
