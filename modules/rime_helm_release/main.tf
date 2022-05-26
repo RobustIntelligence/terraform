@@ -68,6 +68,7 @@ resource "local_file" "helm_values" {
     vouch_whitelist_domains       = var.vouch_whitelist_domains
     ip_allowlist                  = var.ip_allowlist
     enable_api_key_auth           = var.enable_api_key_auth
+    enable_auth                   = var.enable_auth
   })
   filename = format("%s/values_%s.yaml", local.output_dir, var.k8s_namespace)
 }

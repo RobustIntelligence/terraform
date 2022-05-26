@@ -9,6 +9,7 @@ rime:
 %{ endfor ~}
 %{ endif ~}
   enableApiKeyAuth: ${enable_api_key_auth}
+  enableAuth: ${enable_auth}
 
 autoscaling:
   enabled: true
