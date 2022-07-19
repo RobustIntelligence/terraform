@@ -14,7 +14,7 @@ variable "helm_values_output_dir" {
   description = <<EOT
   The directory where to write the generated values YAML files used to configure each Helm release.
   For each namespace in `k8s_namespaces`, a Helm chart "$helm_values_output_dir/values_$namespace.yaml"
-  will be created.
+  will be created. For each rime agent namespace, a values file will be created in an agents/ subdirectory.
   EOT
   type        = string
   default     = ""
@@ -97,6 +97,12 @@ variable "rime_docker_backend_image" {
   description = "The name of the Docker image for RIME's backend services."
   type        = string
   default     = "robustintelligencehq/rime-backend"
+}
+
+variable "rime_docker_agent_image" {
+  description = "The name of the Docker image for RIME agent, not including a tag."
+  type        = string
+  default     = "robustintelligencehq/rime-agent"
 }
 
 variable "rime_docker_frontend_image" {
@@ -392,18 +398,6 @@ variable "user_pilot_flow" {
   default     = ""
 }
 
-variable "vouch_whitelist_domains" {
-  description = "List of domains to add to the vouch domains whitelist. If no whitelist domains are specified, all domains will be allowed."
-  type        = list(string)
-  default     = []
-}
-
-variable "enable_vouch" {
-  description = "Use oidc/vouch to protect the frontend"
-  type        = bool
-  default     = true
-}
-
 variable "internal_lbs" {
   description = "Whether or not the load balancers should be spun up as internal."
   type        = bool
@@ -434,4 +428,34 @@ variable "enable_auth" {
   description = "Use authentication for the frontend"
   type        = bool
   default     = true
+}
+
+variable "enable_additional_mongo_metrics" {
+  description = "If enabled, mongo will expose additional collection-level metrics to the datadog agent"
+  type        = bool
+  default     = true
+}
+
+variable "rime_agent_configs" {
+  description = <<EOT
+  Custom configuration agent deployments, providing access to separate-namespace deployments and custom value files.
+    NOTE: If you want to deploy agents together with the control plane, simply do not include this variable.
+    If not specified, agents will automatically be deployed into same namespaces as control planes.
+  Note that the rime agent deployments will still adhere to the setting of
+  create_managed_helm_release, and will only be installed if this is enabled.
+  * namespace:                the k8s namespace for the rime-agent deployment
+  * custom_values_file_path:  path to custom values file for rime-agent helm chart
+  * cp_namespace:             the namespace where the control plane for this rime agent is
+  * cp_release_name:          the release name of the control plane, which is prepended to service names and necessary
+                                for the rime agent to be able to locate the correct CP services.
+                                If not specified, defaults to "rime."
+                                In dev environments, we often deploy CP with release name rime-workspace1, etc.
+EOT
+  type = list(object({
+    namespace               = string
+    custom_values_file_path = string
+    cp_namespace            = string
+    cp_release_name         = string
+  }))
+  default = []
 }

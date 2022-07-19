@@ -199,8 +199,26 @@ resource "kubernetes_secret" "admin-secrets" {
   }
 
   data = {
-    admin_username      = local.json_secrets["admin_username"]
-    admin_password   = local.json_secrets["admin_password"]
+    admin-username   = local.json_secrets["admin_username"]
+    admin-password   = local.json_secrets["admin_password"]
+  }
+  depends_on = [kubernetes_namespace.auto]
+}
+
+resource "kubernetes_secret" "oidc-secrets" {
+  // Only create if oidc secrets are configured
+  for_each = lookup(local.json_secrets, "oauth_well_known_url", "") != "" ? { for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace => k8s_namespace } : {}
+
+  metadata {
+    name      = "rime-oidc-secret"
+    namespace = each.key
+  }
+
+  // We only use oauth for oidc, hence why we call it oidc secrets
+  data = {
+    client_id       = local.json_secrets["oauth_client_id"]
+    client_secret   = local.json_secrets["oauth_client_secret"]
+    well_known_url  = local.json_secrets["oauth_well_known_url"]
   }
   depends_on = [kubernetes_namespace.auto]
 }

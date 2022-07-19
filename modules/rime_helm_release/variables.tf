@@ -52,19 +52,6 @@ variable "name" {
   type        = string
 }
 
-variable "oauth_config" {
-  description = "Settings that configure oauth authentication."
-  type = object({
-    client_id     = string
-    client_secret = string
-    auth_url      = string
-    token_url     = string
-    user_info_url = string
-  })
-
-  sensitive = true
-}
-
 variable "rime_docker_backend_image" {
   description = "The name of the Docker image for RIME's backend services."
   type        = string
@@ -109,11 +96,6 @@ variable "rime_repository" {
 // interact through the values template?
 variable "rime_version" {
   description = "The version of the RIME software to be installed."
-  type        = string
-}
-
-variable "s3_reader_role_arn" {
-  description = "ARN for the role that allows RBAC roles read access to selected S3 buckets."
   type        = string
 }
 
@@ -170,25 +152,9 @@ variable "acm_cert_arn" {
   type        = string
 }
 
-variable "admin_api_key" {
-  description = "Admin API Key to be installed into the cluster."
-  type        = string
-}
-
-variable "vouch_whitelist_domains" {
-  description = "List of domains to add to the vouch domains whitelist. If no whitelist domains are specified, all domains will be allowed."
-  type        = list(string)
-  default     = []
-}
-
 variable "user_pilot_flow" {
   description = "A unique flow ID shown when choosing the option of \"Trigger manually\" on userpilot dashboard"
   type        = string
-}
-
-variable "enable_vouch" {
-  description = "Use oidc/vouch to protect the frontend"
-  type        = bool
 }
 
 variable "internal_lbs" {
@@ -213,4 +179,16 @@ variable "enable_api_key_auth" {
 variable "enable_auth" {
   description = "Use authentication for the frontend"
   type        = bool
+}
+
+variable "enable_additional_mongo_metrics" {
+  description = "If enabled, mongo will expose additional collection-level metrics to the datadog agent"
+  type        = bool
+  default     = true
+}
+
+variable "model_test_job_config_map" {
+  description = "The name of the configmap to create that will be used to inject env variables into model test jobs"
+  type        = string
+  default     = ""
 }
