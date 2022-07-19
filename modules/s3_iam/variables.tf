@@ -4,6 +4,14 @@ variable "k8s_namespace" {
     namespace = string
     primary   = bool
   })
+  # This module requires that these conditions are met.
+  # The validation conditions should match the ones in the outer most level where k8s_namespace string is first passed as input.
+  # Redundant validation is added here as a safeguard for when the outer most k8s_namespace conidtion is editted without updating this condition.
+  # The conditions are required because k8s_namespace is included in the blob-store S3 bucket name, which has a limit on length and what characters can be included.
+  validation {
+    condition     = length(var.k8s_namespace.namespace) <= 12 && can(regex("^[a-z0-9.-]+$", var.k8s_namespace.namespace))
+    error_message = "Must not be longer than 12 characters and must contain only letters, numbers, dots (.), and hyphens (-)."
+  }
 }
 
 variable "oidc_provider_url" {
@@ -13,6 +21,11 @@ variable "oidc_provider_url" {
 
 variable "resource_name_suffix" {
   description = "A suffix to name the IAM policy and role with."
+  type        = string
+}
+
+variable "service_account_name" {
+  description = "The name of the service account to link to the IAM role"
   type        = string
 }
 

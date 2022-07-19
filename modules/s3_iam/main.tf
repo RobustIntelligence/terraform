@@ -80,7 +80,7 @@ module "iam_assumable_role_with_oidc_for_s3_access" {
   number_of_role_policy_arns = 1
 
   oidc_fully_qualified_subjects = [
-    var.k8s_namespace.primary ? "system:serviceaccount:${var.k8s_namespace.namespace}:rime-model-tester" : "system:serviceaccount:${var.k8s_namespace.namespace}:rime-${var.k8s_namespace.namespace}-model-tester"
+    "system:serviceaccount:${var.k8s_namespace.namespace}:${var.service_account_name}"
   ]
 
   tags = var.tags
