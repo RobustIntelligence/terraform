@@ -249,9 +249,9 @@ variable "server_worker_group_max_size" {
 }
 
 variable "model_testing_worker_group_instance_types" {
-  description = "Instance types for the model testing worker group. Will spin up one asg per instance type."
+  description = "Instance types for the model testing worker group."
   type        = list(string)
-  default     = ["t2.xlarge"]
+  default     = ["t2.xlarge", "t3.xlarge", "t3a.xlarge"]
 }
 
 variable "model_testing_worker_group_min_size" {
@@ -458,4 +458,40 @@ EOT
     cp_release_name         = string
   }))
   default = []
+}
+
+variable "include_internal_agent" {
+  description = "If false, deploys all control planes without an internal agent (i.e. a 'split' deployment)"
+  type        = bool
+  default     = true
+}
+
+variable "use_rmq_health" {
+  description = "Whether to start the rmq-health service."
+  type        = bool
+  default     = true
+}
+
+variable "use_rmq_resource_cleaner" {
+  description = "Whether to use the rmq resource cleaner given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_resource_cleaner_frequency" {
+  description = "The frequency for running the rmq resource cleaner."
+  type        = string
+  default     = "1h"
+}
+
+variable "use_rmq_metrics_updater" {
+  description = "Whether to use the rmq metrics updater given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_metrics_updater_frequency" {
+  description = "The frequency for updating the rmq metrics."
+  type        = string
+  default     = "1s"
 }

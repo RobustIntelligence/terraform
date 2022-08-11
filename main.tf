@@ -27,6 +27,7 @@ locals {
     !var.use_blob_store && var.use_file_upload_service
   ) ? tobool("use_blob_store must be true in order to use file upload service") : true
 
+  // If no agent configs supplied, create agent configurations for same namespace as control planes (k8s_namespaces var)
   rime_agent_configs = (length(var.rime_agent_configs) == 0) ? {
     for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace =>
     {
@@ -39,6 +40,12 @@ locals {
   // The name of the configmap the agent will use to load env vars into model test job container.
   // This name must be in sync between the controlplane (to use in job template) and agent (creates this configmap)
   model_test_job_config_map = "rime-agent-model-testing-conf"
+
+  // Create a repository name that is resource specific.
+  cluster_prefix_for_image_repo = join("/", [
+    var.image_registry_config.repository_prefix,
+    var.resource_name_suffix,
+  ])
 }
 
 module "ecr_iam" {
@@ -48,10 +55,13 @@ module "ecr_iam" {
   count  = var.image_registry_config.enable ? 1 : 0
 
   // Module's arguments.
+  // Note: the repository prefix for ECR is restricted to the path that is
+  // specific to this cluster since this deployment only *owns* images at the
+  // cluster level.
   ecr_registry_arn     = local.ecr_registry_arn
   k8s_namespaces       = var.k8s_namespaces
   oidc_provider_url    = local.stripped_oidc_provider_url
-  repository_prefix    = var.image_registry_config.repository_prefix
+  repository_prefix    = local.cluster_prefix_for_image_repo
   resource_name_suffix = var.resource_name_suffix
   tags                 = local.tags
 }
@@ -119,7 +129,9 @@ module "rime_helm_release" {
     registry_id                  = var.image_registry_config.enable ? local.ecr_account_part_map["account_id"] : ""
     image_builder_role_arn       = var.image_registry_config.enable ? module.ecr_iam[0].ecr_image_builder_role_arn : ""
     repo_manager_role_arn        = var.image_registry_config.enable ? module.ecr_iam[0].ecr_repo_manager_role_arn : ""
-    repository_prefix            = var.image_registry_config.enable ? var.image_registry_config.repository_prefix : ""
+    // The repository prefix used by each namespace is given an additional specifier
+    // for the namespace to ensure that the image names of each namespace are unique.
+    repository_prefix = var.image_registry_config.enable ? join("/", [local.cluster_prefix_for_image_repo, each.key]) : ""
   }
   helm_values_output_dir            = var.helm_values_output_dir
   internal_lbs                      = var.internal_lbs
@@ -144,6 +156,15 @@ module "rime_helm_release" {
   enable_auth                       = var.enable_auth
   enable_additional_mongo_metrics   = var.enable_additional_mongo_metrics
   model_test_job_config_map         = local.model_test_job_config_map
+  use_rmq_health                    = var.use_rmq_health
+  use_rmq_resource_cleaner          = var.use_rmq_resource_cleaner
+  rmq_resource_cleaner_frequency    = var.rmq_resource_cleaner_frequency
+  use_rmq_metrics_updater           = var.use_rmq_metrics_updater
+  rmq_metrics_updater_frequency     = var.rmq_metrics_updater_frequency
+  // Only use a separate model testing group if we are using an internal agent.
+  // In external, we do not want nodeSelectors for jobs that are going to be run on a cluster we do not control.
+  // TODO(andrew): RIME-10083 make agents configure node selectors instead of defining in the control plane
+  separate_model_testing_group = var.include_internal_agent
 
   tags = local.tags
 
@@ -205,8 +226,9 @@ module "s3_blob_store" {
 
 
 module "rime_agent" {
-  source   = "./modules/rime_agent"
-  for_each = { for config in local.rime_agent_configs : config.namespace => config }
+  source = "./modules/rime_agent"
+  // If include_internal_agent is false, ignore agent configs and do not call rime_agent module.
+  for_each = var.include_internal_agent ? { for config in local.rime_agent_configs : config.namespace => config } : {}
 
   // establishes dependence on eks module, which may have created the cluster.
   cluster_name            = data.aws_eks_cluster.cluster.name
@@ -226,10 +248,12 @@ module "rime_agent" {
   // only create namespaces if we are deploying into a separate namespace
   create_k8s_namespace = each.key != each.value.cp_namespace
 
-  firewall_server_addr    = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-firewall-server.${each.value.cp_namespace}:5002"
-  job_manager_server_addr = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
-  redis_addr              = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-redis-headless.${each.value.cp_namespace}:6379"
-  upload_server_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
+  firewall_server_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-firewall-server.${each.value.cp_namespace}:5002"
+  data_collector_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-data-collector-server.${each.value.cp_namespace}:5015"
+  job_manager_server_addr   = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
+  agent_manager_server_addr = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-agent-manager-server.${each.value.cp_namespace}:5016"
+  upload_server_addr        = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
+  request_queue_proxy_addr  = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-request-queue-proxy.${each.value.cp_namespace}:5014"
 
   model_test_job_config_map = local.model_test_job_config_map
   depends_on = [

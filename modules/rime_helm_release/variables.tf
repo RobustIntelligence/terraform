@@ -192,3 +192,39 @@ variable "model_test_job_config_map" {
   type        = string
   default     = ""
 }
+
+variable "use_rmq_health" {
+  description = "Whether to start the rmq-health service."
+  type        = bool
+  default     = true
+}
+
+variable "use_rmq_resource_cleaner" {
+  description = "Whether to use the rmq resource cleaner given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_resource_cleaner_frequency" {
+  description = "The frequency for running the rmq resource cleaner."
+  type        = string
+  default     = "1h"
+}
+
+variable "use_rmq_metrics_updater" {
+  description = "Whether to use the rmq metrics updater given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_metrics_updater_frequency" {
+  description = "The frequency for updating the rmq metrics."
+  type        = string
+  default     = "1s"
+}
+
+variable "separate_model_testing_group" {
+  description = "Whether to force model testing jobs to run on dedicated model-testing nodes, using NodeSelectors"
+  type        = bool
+  default     = true
+}
