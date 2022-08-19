@@ -1,41 +1,30 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  hash_id = sha256("${data.aws_caller_identity.current.account_id}_${var.resource_name_suffix})_${var.k8s_namespace.namespace}")
+  hash_id = sha256("${data.aws_caller_identity.current.account_id}_${var.resource_name_suffix})_${var.k8s_namespace}")
 
   # Bounded by the bucket name length condition of <= 63 so it must be <= 53 as length(rime-blob-) = 10.
   # Because k8s_namespace is <= 12, and resource_name_suffix is <= 25, hash_id is truncated to length 14.
-  bucket_suffix = "${substr(local.hash_id, 0, 14)}-${var.k8s_namespace.namespace}-${var.resource_name_suffix}"
+  bucket_suffix = "${substr(local.hash_id, 0, 14)}-${var.k8s_namespace}-${var.resource_name_suffix}"
 }
 
 resource "aws_s3_bucket" "s3_blob_store_bucket" {
   count  = var.use_blob_store ? 1 : 0
   bucket = "rime-blob-${local.bucket_suffix}" # must be <= 63
 
-  tags = var.tags
-}
-
-resource "aws_s3_bucket_versioning" "s3_blob_store_bucket" {
-  count = var.use_blob_store ? 1 : 0
-
-  bucket = aws_s3_bucket.s3_blob_store_bucket[0].id
-
-  versioning_configuration {
-    status = "Enabled"
+  versioning {
+    enabled = true
   }
 
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "s3_blob_store_bucket" {
-  count = var.use_blob_store ? 1 : 0
-
-  bucket = aws_s3_bucket.s3_blob_store_bucket[0].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
     }
   }
+
+  tags = var.tags
 }
 
 resource "aws_s3_bucket_public_access_block" "s3_blob_store_bucket_access" {
@@ -105,7 +94,7 @@ module "iam_assumable_role_with_oidc_for_s3_blob_store" {
   number_of_role_policy_arns = 1
 
   oidc_fully_qualified_subjects = [
-    var.k8s_namespace.primary ? "system:serviceaccount:${var.k8s_namespace.namespace}:rime-blob-store" : "system:serviceaccount:${var.k8s_namespace.namespace}:rime-${var.k8s_namespace.namespace}-blob-store",
+    "system:serviceaccount:${var.k8s_namespace}:rime-blob-store",
   ]
 
   tags = var.tags

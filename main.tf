@@ -26,19 +26,6 @@ locals {
   validate_file_upload_service = (
     !var.use_blob_store && var.use_file_upload_service
   ) ? tobool("use_blob_store must be true in order to use file upload service") : true
-
-  rime_agent_configs = (length(var.rime_agent_configs) == 0) ? {
-    for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace =>
-    {
-      namespace               = k8s_namespace.namespace
-      custom_values_file_path = ""
-      cp_namespace            = k8s_namespace.namespace
-      cp_release_name         = k8s_namespace.primary ? "rime" : "rime-${k8s_namespace.namespace}"
-    }
-  } : { for config in var.rime_agent_configs : config.namespace => config }
-  // The name of the configmap the agent will use to load env vars into model test job container.
-  // This name must be in sync between the controlplane (to use in job template) and agent (creates this configmap)
-  model_test_job_config_map = "rime-agent-model-testing-conf"
 }
 
 module "ecr_iam" {
@@ -54,6 +41,19 @@ module "ecr_iam" {
   repository_prefix    = var.image_registry_config.repository_prefix
   resource_name_suffix = var.resource_name_suffix
   tags                 = local.tags
+}
+
+module "s3_iam" {
+  source = "./modules/s3_iam"
+
+  for_each      = { for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace => k8s_namespace }
+  k8s_namespace = each.value
+
+  oidc_provider_url              = local.stripped_oidc_provider_url
+  resource_name_suffix           = var.resource_name_suffix
+  s3_authorized_bucket_path_arns = concat(var.s3_authorized_bucket_path_arns, module.s3_blob_store[each.key].s3_blob_store_bucket_path_arns)
+
+  tags = local.tags
 }
 
 module "route53" {
@@ -111,8 +111,10 @@ module "rime_helm_release" {
   k8s_namespace = each.key
 
   acm_cert_arn                = local.rime_domain != "" ? data.aws_acm_certificate.this_zone_acm_certificate[0].arn : ""
+  admin_api_key               = local.json_secrets["admin_api_key"]
   create_managed_helm_release = var.create_managed_helm_release
   domain                      = each.value.primary ? local.rime_domain : "${each.key}-${local.rime_domain}"
+  enable_vouch                = var.enable_vouch
   image_registry_config = {
     enable                       = var.image_registry_config.enable
     allow_external_custom_images = var.image_registry_config.allow_external_custom_images
@@ -125,25 +127,32 @@ module "rime_helm_release" {
   internal_lbs                      = var.internal_lbs
   load_balancer_security_groups_ids = local.create_lb_security_group ? [aws_security_group.internal_load_balancer_security_group[0].id] : []
   mongo_db_size                     = var.mongo_db_size
-  rime_docker_backend_image         = var.rime_docker_backend_image
-  rime_docker_frontend_image        = var.rime_docker_frontend_image
-  rime_docker_image_builder_image   = var.rime_docker_image_builder_image
-  rime_docker_model_testing_image   = var.rime_docker_model_testing_image
-  rime_docker_secret_name           = var.rime_docker_secret_name
-  rime_jwt                          = local.json_secrets["rime_jwt"]
-  rime_repository                   = var.rime_repository
-  rime_version                      = var.rime_version
-  use_blob_store                    = var.use_blob_store
-  s3_blob_store_role_arn            = var.use_blob_store ? module.s3_blob_store[each.key].s3_blob_store_role_arn : ""
-  s3_blob_store_bucket_name         = var.use_blob_store ? module.s3_blob_store[each.key].s3_blob_store_bucket_name : ""
-  use_file_upload_service           = var.use_file_upload_service
-  user_pilot_flow                   = var.user_pilot_flow
-  verbose                           = var.verbose
-  ip_allowlist                      = var.ip_allowlist
-  enable_api_key_auth               = var.enable_api_key_auth
-  enable_auth                       = var.enable_auth
-  enable_additional_mongo_metrics   = var.enable_additional_mongo_metrics
-  model_test_job_config_map         = local.model_test_job_config_map
+  oauth_config = {
+    client_id     = local.json_secrets["oauth_client_id"]
+    client_secret = local.json_secrets["oauth_client_secret"]
+    auth_url      = local.json_secrets["oauth_auth_url"]
+    token_url     = local.json_secrets["oauth_token_url"]
+    user_info_url = local.json_secrets["oauth_user_info_url"]
+  }
+  rime_docker_backend_image       = var.rime_docker_backend_image
+  rime_docker_frontend_image      = var.rime_docker_frontend_image
+  rime_docker_image_builder_image = var.rime_docker_image_builder_image
+  rime_docker_model_testing_image = var.rime_docker_model_testing_image
+  rime_docker_secret_name         = var.rime_docker_secret_name
+  rime_jwt                        = local.json_secrets["rime_jwt"]
+  rime_repository                 = var.rime_repository
+  rime_version                    = var.rime_version
+  s3_reader_role_arn              = module.s3_iam[each.key].s3_reader_role_arn
+  use_blob_store                  = var.use_blob_store
+  s3_blob_store_role_arn          = var.use_blob_store ? module.s3_blob_store[each.key].s3_blob_store_role_arn : ""
+  s3_blob_store_bucket_name       = var.use_blob_store ? module.s3_blob_store[each.key].s3_blob_store_bucket_name : ""
+  use_file_upload_service         = var.use_file_upload_service
+  user_pilot_flow                 = var.user_pilot_flow
+  verbose                         = var.verbose
+  vouch_whitelist_domains         = var.vouch_whitelist_domains
+  ip_allowlist                    = var.ip_allowlist
+  enable_api_key_auth             = var.enable_api_key_auth
+  enable_auth                     = var.enable_auth
 
   tags = local.tags
 
@@ -196,45 +205,9 @@ module "s3_blob_store" {
   use_blob_store = var.use_blob_store
 
   for_each             = { for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace => k8s_namespace }
-  k8s_namespace        = each.value
+  k8s_namespace        = each.key
   oidc_provider_url    = local.stripped_oidc_provider_url
   resource_name_suffix = var.resource_name_suffix
 
   tags = var.tags
-}
-
-
-module "rime_agent" {
-  source   = "./modules/rime_agent"
-  for_each = { for config in local.rime_agent_configs : config.namespace => config }
-
-  // establishes dependence on eks module, which may have created the cluster.
-  cluster_name            = data.aws_eks_cluster.cluster.name
-  custom_values_file_path = each.value.custom_values_file_path
-  k8s_namespace           = each.key
-  resource_name_suffix    = var.resource_name_suffix
-  rime_repository         = var.rime_repository
-  rime_version            = var.rime_version
-  rime_docker_agent_image = var.rime_docker_agent_image
-
-  // have to authorize blob store buckets created by the CP namespace
-  s3_authorized_bucket_path_arns = concat(var.s3_authorized_bucket_path_arns, module.s3_blob_store[each.value.cp_namespace].s3_blob_store_bucket_path_arns)
-  create_managed_helm_release    = var.create_managed_helm_release
-  helm_values_output_dir         = "${var.helm_values_output_dir}/agent"
-  rime_secrets_name              = var.rime_secrets_name
-
-  // only create namespaces if we are deploying into a separate namespace
-  create_k8s_namespace = each.key != each.value.cp_namespace
-
-  firewall_server_addr    = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-firewall-server.${each.value.cp_namespace}:5002"
-  job_manager_server_addr = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
-  redis_addr              = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-redis-headless.${each.value.cp_namespace}:6379"
-  upload_server_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
-
-  model_test_job_config_map = local.model_test_job_config_map
-  depends_on = [
-    module.eks,
-    module.rime_helm_release,
-  ]
-
 }

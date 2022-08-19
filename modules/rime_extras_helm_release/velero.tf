@@ -1,37 +1,26 @@
 resource "aws_s3_bucket" "velero_s3_bucket" {
-  count = var.install_velero ? 1 : 0
+  count  = var.install_velero ? 1 : 0
+  bucket = "rime-velero-backup-${var.resource_name_suffix}"
 
-  bucket        = "rime-velero-backup-${var.resource_name_suffix}"
-  force_destroy = true
-  tags          = var.tags
-}
+  versioning {
+    enabled = true
+  }
 
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "velero_s3_bucket" {
-  count = var.install_velero ? 1 : 0
-
-  bucket = aws_s3_bucket.velero_s3_bucket[0].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
     }
   }
-}
 
-resource "aws_s3_bucket_versioning" "velero_s3_bucket" {
-  count = var.install_velero ? 1 : 0
-
-  bucket = aws_s3_bucket.velero_s3_bucket[0].id
-  versioning_configuration {
-    status = "Enabled"
-  }
+  tags = var.tags
 }
 
 resource "aws_s3_bucket_public_access_block" "velero_s3_bucket_access" {
-  count = var.install_velero ? 1 : 0
+  count  = var.install_velero ? 1 : 0
+  bucket = aws_s3_bucket.velero_s3_bucket[0].id
 
-  bucket                  = aws_s3_bucket.velero_s3_bucket[0].id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true

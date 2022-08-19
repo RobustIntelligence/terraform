@@ -33,35 +33,42 @@ resource "kubernetes_storage_class" "mongo_storage" {
 # The YAML file created by instantiating `values_tmpl.yaml`.
 resource "local_file" "helm_values" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
-    acm_cert_arn                    = var.acm_cert_arn
-    docker_backend_image            = var.rime_docker_backend_image
-    docker_backend_secret_name      = var.rime_docker_secret_name
-    docker_frontend_image           = var.rime_docker_frontend_image
-    docker_image_builder_image      = var.rime_docker_image_builder_image
-    docker_model_testing_image      = var.rime_docker_model_testing_image
-    domain                          = var.domain == "" ? "placeholder" : var.domain
-    image_registry_config           = var.image_registry_config
-    jwt_secret                      = random_password.jwt_secret.result
-    lb_security_groups              = length(local.load_balancer_security_groups) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-extra-security-groups: \"${local.tags}\"" : ""
-    lb_tags                         = length(local.tags) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: \"${local.tags}\"" : ""
-    lb_type                         = var.internal_lbs ? "internal" : "internet-facing"
-    mongo_db_size                   = var.mongo_db_size
-    mongo_storage_class             = local.mongo_storage_class
-    namespace                       = var.k8s_namespace
-    pull_policy                     = var.rime_version == "latest" ? "Always" : "IfNotPresent"
-    rime_jwt                        = var.rime_jwt
-    s3_blob_store_bucket_name       = var.use_blob_store ? var.s3_blob_store_bucket_name : ""
-    s3_blob_store_role_arn          = var.use_blob_store ? var.s3_blob_store_role_arn : ""
-    use_blob_store                  = var.use_blob_store
-    use_file_upload_service         = var.use_file_upload_service
-    user_pilot_flow                 = var.user_pilot_flow
-    verbose                         = var.verbose
-    version                         = var.rime_version
-    ip_allowlist                    = var.ip_allowlist
-    enable_api_key_auth             = var.enable_api_key_auth
-    enable_auth                     = var.enable_auth
-    enable_additional_mongo_metrics = var.enable_additional_mongo_metrics
-    model_test_job_config_map       = var.model_test_job_config_map
+    acm_cert_arn                  = var.acm_cert_arn
+    api_key                       = var.admin_api_key
+    docker_backend_image          = var.rime_docker_backend_image
+    docker_backend_secret_name    = var.rime_docker_secret_name
+    docker_frontend_image         = var.rime_docker_frontend_image
+    docker_image_builder_image    = var.rime_docker_image_builder_image
+    docker_model_testing_image    = var.rime_docker_model_testing_image
+    domain                        = var.domain == "" ? "placeholder" : var.domain
+    enable_vouch                  = var.enable_vouch
+    image_registry_config         = var.image_registry_config
+    jwt_secret                    = random_password.jwt_secret.result
+    lb_security_groups            = length(local.load_balancer_security_groups) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-extra-security-groups: \"${local.tags}\"" : ""
+    lb_tags                       = length(local.tags) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: \"${local.tags}\"" : ""
+    lb_type                       = var.internal_lbs ? "internal" : "internet-facing"
+    mongo_db_size                 = var.mongo_db_size
+    mongo_storage_class           = local.mongo_storage_class
+    namespace                     = var.k8s_namespace
+    oauth_auth_url                = var.oauth_config.auth_url
+    oauth_client_id               = var.oauth_config.client_id
+    oauth_client_secret           = var.oauth_config.client_secret
+    oauth_token_url               = var.oauth_config.token_url
+    oauth_user_info_url           = var.oauth_config.user_info_url
+    pull_policy                   = var.rime_version == "latest" ? "Always" : "IfNotPresent"
+    rime_jwt                      = var.rime_jwt
+    s3_blob_store_bucket_name     = var.use_blob_store ? var.s3_blob_store_bucket_name : ""
+    s3_blob_store_role_arn        = var.use_blob_store ? var.s3_blob_store_role_arn : ""
+    s3_role_arn                   = var.s3_reader_role_arn
+    use_blob_store                = var.use_blob_store
+    use_file_upload_service       = var.use_file_upload_service
+    user_pilot_flow               = var.user_pilot_flow
+    verbose                       = var.verbose
+    version                       = var.rime_version
+    vouch_whitelist_domains       = var.vouch_whitelist_domains
+    ip_allowlist                  = var.ip_allowlist
+    enable_api_key_auth           = var.enable_api_key_auth
+    enable_auth                   = var.enable_auth
   })
   filename = format("%s/values_%s.yaml", local.output_dir, var.k8s_namespace)
 }
