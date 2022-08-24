@@ -80,10 +80,12 @@ resource "local_file" "terraform_provided_values" {
     version                             = var.rime_version
     s3_reader_role_arn                  = module.s3_iam.s3_reader_role_arn
     image_pull_secret_name              = var.rime_docker_secret_name
-    redis_addr                          = var.redis_addr
+    request_queue_proxy_addr            = var.request_queue_proxy_addr
     upload_server_addr                  = var.upload_server_addr
     firewall_server_addr                = var.firewall_server_addr
+    data_collector_addr                 = var.data_collector_addr
     job_manager_server_addr             = var.job_manager_server_addr
+    agent_manager_server_addr           = var.agent_manager_server_addr
     model_test_job_service_account_name = local.model_test_job_service_account_name
     model_test_job_config_map           = var.model_test_job_config_map
   })
