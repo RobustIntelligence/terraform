@@ -13,6 +13,10 @@ rimeAgent:
 %{ if length(job_manager_server_addr) > 0 ~}
   jobManagerAddr: ${ job_manager_server_addr }
 %{ endif ~}
+  
+%{ if length(agent_manager_server_addr) > 0 ~}
+  agentManagerAddr: ${ agent_manager_server_addr }
+%{ endif ~}
 
   modelTestJob:
 %{ if length(model_test_job_config_map) > 0 ~}
@@ -30,8 +34,9 @@ rimeAgent:
 %{ if length(firewall_server_addr) > 0 ~}
     firewallServerAddr: ${ firewall_server_addr }
 %{ endif ~}
-
-%{ if length(redis_addr) > 0 ~}
-  launcher:
-    redisAddr: ${ redis_addr }
+%{ if length(data_collector_addr) > 0 ~}
+    dataCollectorAddr: ${ data_collector_addr }
 %{ endif ~}
+
+  launcher:
+    requestQueueProxyAddr: ${ request_queue_proxy_addr }

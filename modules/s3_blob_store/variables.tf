@@ -1,7 +1,7 @@
 variable "use_blob_store" {
   description = "Whether to use blob store for the cluster."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "k8s_namespace" {

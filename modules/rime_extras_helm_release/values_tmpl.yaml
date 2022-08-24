@@ -9,10 +9,28 @@ datadog:
   registry: gcr.io/datadoghq
 
   datadog:
+    # We do not deploy the kube-state-metrics deployment by default. These metrics are redundant and unused.
+    # The metrics controlled by this value show up as `kube_pod_info` or similar. Not the same as the native
+    # kubernetes.* metrics.
+    # See https://github.com/DataDog/helm-charts/blob/c75a5effa46d934f5f9952d2bf658823e9170135/charts/datadog/values.yaml#L122
+    kubeStateMetricsEnabled: false
 
     # Whether to autodiscover and scrape pods with Prometheus annotations.
+    # The container name restriction restricts prometheus metrics scraping to only our custom containers. The names
+    # of these containers are controlled by the agent and control plane helm charts.
     prometheusScrape:
       enabled: true
+      additionalConfigs:
+        -
+          autodiscovery:
+            kubernetes_container_names: # Will be made more flexible and standardized in RIME-10996
+              - rime
+              - rime-agent
+
+    # see https://docs.datadoghq.com/agent/guide/auto_conf/
+    ignoreAutoConfig:
+      - kubernetes_state
+      - redisdb
 
     apiKey: "${datadog_api_key}"
     # datadog.tags -- List of static tags to attach to every metric, event and service check collected by this Agent.

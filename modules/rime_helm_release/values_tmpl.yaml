@@ -10,6 +10,7 @@ rime:
 %{ endif ~}
   enableApiKeyAuth: ${enable_api_key_auth}
   enableAuth: ${enable_auth}
+  separateModelTestingGroup: ${separate_model_testing_group}
 
 autoscaling:
   enabled: true
@@ -57,22 +58,6 @@ rimeJwt: ${rime_jwt}
 userpilotFlow: ${user_pilot_flow}
 
 mongodb:
-  architecture: "replicaset"
-  replicaCount: 3
-  arbiter:
-    enabled: false
-  auth:
-    enabled: false
-  service:
-    port: 27017
-  replicaSetName: rs0
-  resources:
-    requests:
-      memory: "3000Mi"
-      cpu: "1500m"
-    limits:
-      memory: "8000Mi"
-      cpu: "2000m"
   podAnnotations:
     cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     ad.datadoghq.com/mongodb.check_names: '["mongo"]'
@@ -151,15 +136,10 @@ blobStore:
 
 ingress-nginx:
   controller:
-    admissionWebhooks:
-      enabled: false
     scope:
       enabled: true
       namespace: ${namespace}
     service:
-      targetPorts:
-        http: http
-        https: http
       annotations:
         service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
         service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
@@ -168,28 +148,17 @@ ingress-nginx:
         service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
         service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
-%{ if length(ip_allowlist) > 0 ~}
+  %{ if length(ip_allowlist) > 0 ~}
         service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-%{ endif ~}
+  %{ endif ~}
         ${lb_security_groups}
         ${lb_tags}
-    config:
-      force-ssl-redirect: "false"
-      ssl-redirect: "false"
 
 kong:
   ingressController:
-    enabled: true
-    installCRDs: false
     watchNamespaces:
       - ${namespace}
   proxy:
-    enabled: true
-    http:
-      parameters:
-        - http2
-    tls:
-      overrideServiceTargetPort: 8000
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "kong-proxy-tls"
@@ -198,32 +167,20 @@ kong:
       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
       service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
       service.beta.kubernetes.io/aws-load-balancer-alpn-policy: "HTTP2Preferred"
-%{ if length(ip_allowlist) > 0 ~}
+  %{ if length(ip_allowlist) > 0 ~}
       service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-%{ endif ~}
+  %{ endif ~}
       ${lb_security_groups}
       ${lb_tags}
-  plugins:
-    configMaps: # change this to 'secrets' if you created a secret
-      - name: kong-plugin-custom-key-auth
-        pluginName: custom-key-auth
-
-redis:
-  architecture: "standalone"
-  auth:
-    enabled: false
-  master:
-    resources:
-      requests:
-        memory: "500Mi"
-        cpu: "500m"
-      limits:
-        memory: "1000Mi"
-        cpu: "1000m"
-    persistence:
-      enabled: true
-  podAnnotations:
-    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
 
 datasetManager:
   useFileUploadService: ${use_file_upload_service}
+
+rmqHealth:
+  create: ${use_rmq_health}
+  resourceCleaner:
+    create: ${use_rmq_resource_cleaner}
+    frequency: ${rmq_resource_cleaner_frequency}
+  metricsUpdater: 
+    create: ${use_rmq_metrics_updater}
+    frequency: ${rmq_metrics_updater_frequency}
