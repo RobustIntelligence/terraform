@@ -12,38 +12,6 @@ provider "helm" {
   }
 }
 
-locals {
-  model_testing_worker_groups = [
-    for instance_type in var.model_testing_worker_group_instance_types :
-    {
-      name                 = "rime-worker-group-model-testing-${instance_type}"
-      instance_type        = instance_type
-      asg_min_size         = var.model_testing_worker_group_min_size
-      asg_desired_capacity = var.model_testing_worker_group_min_size
-      asg_max_size         = var.model_testing_worker_group_max_size
-      key_name             = var.node_ssh_key
-      kubelet_extra_args   = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
-      tags = [
-        {
-          key                 = "k8s.io/cluster-autoscaler/enabled"
-          value               = "TRUE",
-          propagate_at_launch = true
-        },
-        {
-          key                 = "k8s.io/cluster-autoscaler/${var.cluster_name}"
-          value               = "owned",
-          propagate_at_launch = true
-        },
-        {
-          key                 = "k8s.io/cluster-autoscaler/node-template/label/dedicated"
-          value               = "model-testing",
-          propagate_at_launch = true
-        }
-      ]
-    }
-  ]
-}
-
 #Permissions based off this guide: https://docs.aws.amazon.com/AmazonECR/latest/userguide/ECR_on_EKS.html
 resource "aws_iam_policy" "node_ecr_policy" {
   count = var.allow_ecr_pull ? 1 : 0
@@ -92,11 +60,8 @@ module "eks" {
 
   vpc_id = var.vpc_id
 
-  workers_group_defaults = {
-    root_volume_type = "gp2"
-  }
   #cluster autoscaler will take care of changing desired capacity as needed
-  worker_groups = concat([
+  worker_groups_launch_template = [
     {
       name                 = "rime-worker-group"
       instance_type        = "t2.xlarge"
@@ -117,7 +82,40 @@ module "eks" {
         }
       ]
     },
-  ], local.model_testing_worker_groups)
+    {
+      name                 = "rime-worker-group-model-testing"
+      instance_type        = var.model_testing_worker_group_instance_types[0]
+      override_instance_types = slice(var.model_testing_worker_group_instance_types, 1, length(var.model_testing_worker_group_instance_types))
+      asg_min_size         = var.model_testing_worker_group_min_size
+      asg_desired_capacity = var.model_testing_worker_group_min_size
+      asg_max_size         = var.model_testing_worker_group_max_size
+      key_name             = var.node_ssh_key
+      # Mixed Instance Policy Configurations. May need to tune. Currently we either use all spot or all on-demand.
+      # Mixed Instance Policy docs: https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_MixedInstancesPolicy.html
+      on_demand_base_capacity = "0"
+      on_demand_percentage_above_base_capacity = var.model_testing_worker_group_use_spot ? "0" : "100"
+      spot_allocation_strategy = "lowest-price"
+      kubelet_extra_args   = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
+
+      tags = [
+        {
+          key                 = "k8s.io/cluster-autoscaler/enabled"
+          value               = "TRUE",
+          propagate_at_launch = true
+        },
+        {
+          key                 = "k8s.io/cluster-autoscaler/${var.cluster_name}"
+          value               = "owned",
+          propagate_at_launch = true
+        },
+        {
+          key                 = "k8s.io/cluster-autoscaler/node-template/label/dedicated"
+          value               = "model-testing",
+          propagate_at_launch = true
+        }
+      ]
+    }
+  ]
   workers_additional_policies = var.allow_ecr_pull ? concat(var.eks_cluster_node_iam_policies, [aws_iam_policy.node_ecr_policy[0].arn]) : var.eks_cluster_node_iam_policies
 
   map_roles        = var.map_roles
