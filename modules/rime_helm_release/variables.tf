@@ -102,7 +102,7 @@ variable "rime_version" {
 variable "use_blob_store" {
   description = "Whether to use blob store for the cluster."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "s3_blob_store_role_arn" {
@@ -121,7 +121,7 @@ variable "s3_blob_store_bucket_name" {
 variable "use_file_upload_service" {
   description = "Whether to use file upload service."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "mongo_db_size" {
@@ -191,4 +191,46 @@ variable "model_test_job_config_map" {
   description = "The name of the configmap to create that will be used to inject env variables into model test jobs"
   type        = string
   default     = ""
+}
+
+variable "use_rmq_health" {
+  description = "Whether to start the rmq-health service."
+  type        = bool
+  default     = true
+}
+
+variable "use_rmq_resource_cleaner" {
+  description = "Whether to use the rmq resource cleaner given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_resource_cleaner_frequency" {
+  description = "The frequency for running the rmq resource cleaner."
+  type        = string
+  default     = "5m"
+}
+
+variable "use_rmq_metrics_updater" {
+  description = "Whether to use the rmq metrics updater given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_metrics_updater_frequency" {
+  description = "The frequency for updating the rmq metrics."
+  type        = string
+  default     = "1s"
+}
+
+variable "separate_model_testing_group" {
+  description = "Whether to force model testing jobs to run on dedicated model-testing nodes, using NodeSelectors"
+  type        = bool
+  default     = true
+}
+
+variable "docker_registry" {
+  description = "The name of the docker registry holding all of the chart images"
+  type        = string
+  default     = "docker.io"
 }

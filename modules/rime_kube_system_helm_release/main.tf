@@ -10,6 +10,8 @@ resource "local_file" "rime_kube_system" {
     cluster_name                = var.cluster_name
     cluster_autoscaler_role_arn = var.install_cluster_autoscaler ? module.iam_assumable_role_with_oidc_for_autoscaler[0].this_iam_role_arn : ""
     dns_role_arn                = var.install_external_dns ? module.iam_assumable_role_with_oidc_for_route53[0].this_iam_role_arn : ""
+    docker_secret_name          = var.rime_docker_secret_name
+    docker_registry             = var.docker_registry
     domains                     = var.domains
     install_cluster_autoscaler  = var.install_cluster_autoscaler
     install_external_dns        = var.install_external_dns
