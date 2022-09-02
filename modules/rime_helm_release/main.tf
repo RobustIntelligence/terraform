@@ -35,7 +35,8 @@ resource "local_file" "helm_values" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
     acm_cert_arn                    = var.acm_cert_arn
     docker_backend_image            = var.rime_docker_backend_image
-    docker_backend_secret_name      = var.rime_docker_secret_name
+    docker_secret_name      = var.rime_docker_secret_name
+    docker_registry         = var.docker_registry
     docker_frontend_image           = var.rime_docker_frontend_image
     docker_image_builder_image      = var.rime_docker_image_builder_image
     docker_model_testing_image      = var.rime_docker_model_testing_image
@@ -62,6 +63,12 @@ resource "local_file" "helm_values" {
     enable_auth                     = var.enable_auth
     enable_additional_mongo_metrics = var.enable_additional_mongo_metrics
     model_test_job_config_map       = var.model_test_job_config_map
+    use_rmq_health                  = var.use_rmq_health
+    use_rmq_resource_cleaner        = var.use_rmq_resource_cleaner
+    rmq_resource_cleaner_frequency  = var.rmq_resource_cleaner_frequency
+    use_rmq_metrics_updater         = var.use_rmq_metrics_updater
+    rmq_metrics_updater_frequency   = var.rmq_metrics_updater_frequency
+    separate_model_testing_group    = var.separate_model_testing_group
   })
   filename = format("%s/values_%s.yaml", local.output_dir, var.k8s_namespace)
 }
