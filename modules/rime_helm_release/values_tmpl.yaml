@@ -9,7 +9,7 @@ rime:
 %{ endfor ~}
 %{ endif ~}
   enableApiKeyAuth: ${enable_api_key_auth}
-  enableAuth: ${enable_auth}
+  separateModelTestingGroup: ${separate_model_testing_group}
 
 autoscaling:
   enabled: true
@@ -33,46 +33,42 @@ modelTestResources:
     cpu: "1500m"
 
 backendImage:
-  name: "${docker_backend_image}:${version}"
+  name: "${docker_registry}/${docker_backend_image}:${version}"
   pullPolicy: "${pull_policy}"
 
 frontendImage:
-  name: "${docker_frontend_image}:${version}"
+  name: "${docker_registry}/${docker_frontend_image}:${version}"
   pullPolicy: "${pull_policy}"
 
 modelTestImage:
   # This is the rime-engine configuration for the staging environment.
-  name: "${docker_model_testing_image}:${version}"
+  name: "${docker_registry}/${docker_model_testing_image}:${version}"
   pullPolicy: "${pull_policy}"
 
 firewall:
   enabled: true
+  
+scheduledCT:
+  scheduledCTCRON:
+      create: ${create_scheduled_ct}
+      # run every five minutes
+      schedule: "*/5 * * * *"
 
 # TODO(blaine): Allow image pull secrets to be customized to the image.
 imagePullSecrets:
-  - name: ${docker_backend_secret_name}
+  - name: ${docker_secret_name}
 
 rimeJwt: ${rime_jwt}
 
 userpilotFlow: ${user_pilot_flow}
 
 mongodb:
-  architecture: "replicaset"
-  replicaCount: 3
-  arbiter:
-    enabled: false
-  auth:
-    enabled: false
-  service:
-    port: 27017
-  replicaSetName: rs0
-  resources:
-    requests:
-      memory: "3000Mi"
-      cpu: "1500m"
-    limits:
-      memory: "8000Mi"
-      cpu: "2000m"
+  image:
+    registry: "${docker_registry}"
+    repository: "robustintelligencehq/mongodb"
+    tag: "5.0.9-debian-11-r7"
+    pullSecrets:
+      - ${docker_secret_name}
   podAnnotations:
     cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     ad.datadoghq.com/mongodb.check_names: '["mongo"]'
@@ -106,12 +102,15 @@ mongodb:
 imageRegistry:
   create: ${image_registry_config.enable}
 %{ if image_registry_config.enable ~}
-  ecrRegistryID: "${image_registry_config.registry_id}"
-  repositoryPrefix: "${image_registry_config.repository_prefix}"
-  dockerSecretName: "${docker_backend_secret_name}"
+  config:
+    imageRegistry:
+      ecr:
+        registryID: "${image_registry_config.registry_id}"
+        repositoryPrefix: "${image_registry_config.repository_prefix}"
+  dockerSecretName: "${docker_secret_name}"
   # Specification of the container image used for running the image builder jobs.
   image:
-    name: "${docker_image_builder_image}:${version}"
+    name: "${docker_registry}/${docker_image_builder_image}:${version}"
     pullPolicy: "${pull_policy}"
   rbac:
     serverAccount:
@@ -150,16 +149,18 @@ blobStore:
   type: "s3"
 
 ingress-nginx:
+  imagePullSecrets:
+    - name: ${docker_secret_name}
   controller:
-    admissionWebhooks:
-      enabled: false
+    image:
+      registry: "${docker_registry}"
+      image: "robustintelligencehq/ingress-nginx-controller"
+      tag: "v1.3.0"
+      digest: "sha256:067673df26a65ec5c2d5b30f25db869bad4d7d391fc81882250134577e581ef0"
     scope:
       enabled: true
       namespace: ${namespace}
     service:
-      targetPorts:
-        http: http
-        https: http
       annotations:
         service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
         service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
@@ -168,28 +169,25 @@ ingress-nginx:
         service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
         service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
-%{ if length(ip_allowlist) > 0 ~}
+  %{ if length(ip_allowlist) > 0 ~}
         service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-%{ endif ~}
+  %{ endif ~}
         ${lb_security_groups}
         ${lb_tags}
-    config:
-      force-ssl-redirect: "false"
-      ssl-redirect: "false"
 
 kong:
+  image:
+    repository: "${docker_registry}/robustintelligencehq/kong"
+    tag: "2.8"
+    pullSecrets:
+      - ${docker_secret_name}
   ingressController:
-    enabled: true
-    installCRDs: false
+    image:
+      repository: "${docker_registry}/robustintelligencehq/kong-kubernetes-ingress-controller"
+      tag: "2.2"
     watchNamespaces:
       - ${namespace}
   proxy:
-    enabled: true
-    http:
-      parameters:
-        - http2
-    tls:
-      overrideServiceTargetPort: 8000
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "kong-proxy-tls"
@@ -198,32 +196,33 @@ kong:
       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
       service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
       service.beta.kubernetes.io/aws-load-balancer-alpn-policy: "HTTP2Preferred"
-%{ if length(ip_allowlist) > 0 ~}
+  %{ if length(ip_allowlist) > 0 ~}
       service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-%{ endif ~}
+  %{ endif ~}
       ${lb_security_groups}
       ${lb_tags}
-  plugins:
-    configMaps: # change this to 'secrets' if you created a secret
-      - name: kong-plugin-custom-key-auth
-        pluginName: custom-key-auth
 
 redis:
-  architecture: "standalone"
-  auth:
-    enabled: false
-  master:
-    resources:
-      requests:
-        memory: "500Mi"
-        cpu: "500m"
-      limits:
-        memory: "1000Mi"
-        cpu: "1000m"
-    persistence:
-      enabled: true
-  podAnnotations:
-    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+  image:
+    registry: "${docker_registry}"
+    repository: "robustintelligencehq/redis"
+    tag: "7.0.4-debian-11-r4"
+    pullSecrets:
+      - ${docker_secret_name}
+
 
 datasetManager:
   useFileUploadService: ${use_file_upload_service}
+
+rmqHealth:
+  create: ${use_rmq_health}
+  resourceCleaner:
+    create: ${use_rmq_resource_cleaner}
+    frequency: ${rmq_resource_cleaner_frequency}
+  metricsUpdater: 
+    create: ${use_rmq_metrics_updater}
+    frequency: ${rmq_metrics_updater_frequency}
+
+databaseSetup:
+  initClusterMetadataHook:
+    overwriteLicense: ${overwrite_license}
