@@ -78,3 +78,15 @@ variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
 }
+
+variable "docker_registry" {
+  description = "The name of the docker registry holding all of the chart images"
+  type        = string
+  default     = "docker.io"
+}
+
+variable "rime_docker_secret_name" {
+  description = "The name of the Kubernetes secret used to pull the Docker image for RIME's backend services."
+  type        = string
+  default     = "rimecreds"
+}

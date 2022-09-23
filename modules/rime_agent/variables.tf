@@ -97,10 +97,9 @@ variable "rime_docker_secret_name" {
   default     = "rimecreds"
 }
 
-// redis_addr is used by the Launcher
-variable "redis_addr" {
+variable "request_queue_proxy_addr" {
   description = <<EOT
-  The address of the redis queue to be passed down to the rime-agent Helm chart. The
+  The address of the request queue proxy to be passed down to the rime-agent Helm chart. The
   value defined here will override any other value provided in the custom values file."
   EOT
   type        = string
@@ -111,6 +110,16 @@ variable "redis_addr" {
 variable "job_manager_server_addr" {
   description = <<EOT
   The address of the job manager server to be passed down to the rime-agent Helm chart.
+  The value defined here will override any other value provided in the custom values file."
+  EOT
+  type        = string
+  default     = ""
+}
+
+// agent_manager_server_addr is the internal cluster address of CP agent management service used by the Agent.
+variable "agent_manager_server_addr" {
+  description = <<EOT
+  The address of the agent manager server to be passed down to the rime-agent Helm chart.
   The value defined here will override any other value provided in the custom values file."
   EOT
   type        = string
@@ -137,6 +146,26 @@ variable "firewall_server_addr" {
   default     = ""
 }
 
+// data_collector_addr is used in the ConfigMap to configurate Model Testing Jobs.
+variable "data_collector_addr" {
+  description = <<EOT
+  The address of the data collector server to be passed down to the rime-agent Helm chart. The
+  value defined here will override any other value provided in the custom values file."
+  EOT
+  type        = string
+  default     = ""
+}
+
+// grpc_web_server_addr is used by the Job Launcher to check on the status jobs, fetch secrets, etc.
+variable "grpc_web_server_addr" {
+  description = <<EOT
+  The address of the gRPC web server to be passed down to the rime-agent Helm chart.
+  The value defined here will override any other value provided in the custom values file."
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "create_k8s_namespace" {
   type    = bool
   default = true
@@ -152,4 +181,10 @@ variable "model_test_job_config_map" {
   description = "The name of the configmap to create that will be used to inject env variables into model test jobs"
   type        = string
   default     = ""
+}
+
+variable "docker_registry" {
+  description = "The name of the docker registry holding all of the chart images"
+  type        = string
+  default     = "docker.io"
 }
