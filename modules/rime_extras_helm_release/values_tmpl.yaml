@@ -6,13 +6,31 @@ datadog:
   targetSystem: "linux"
 
   # registry -- Registry to use for all Agent images (default gcr.io)
-  registry: gcr.io/datadoghq
+  registry: "${docker_registry}"
 
   datadog:
+    # We do not deploy the kube-state-metrics deployment by default. These metrics are redundant and unused.
+    # The metrics controlled by this value show up as `kube_pod_info` or similar. Not the same as the native
+    # kubernetes.* metrics.
+    # See https://github.com/DataDog/helm-charts/blob/c75a5effa46d934f5f9952d2bf658823e9170135/charts/datadog/values.yaml#L122
+    kubeStateMetricsEnabled: false
 
     # Whether to autodiscover and scrape pods with Prometheus annotations.
+    # The container name restriction restricts prometheus metrics scraping to only our custom containers. The names
+    # of these containers are controlled by the agent and control plane helm charts.
     prometheusScrape:
       enabled: true
+      additionalConfigs:
+        -
+          autodiscovery:
+            kubernetes_container_names: # Will be made more flexible and standardized in RIME-10996
+              - rime
+              - rime-agent
+
+    # see https://docs.datadoghq.com/agent/guide/auto_conf/
+    ignoreAutoConfig:
+      - kubernetes_state
+      - redisdb
 
     apiKey: "${datadog_api_key}"
     # datadog.tags -- List of static tags to attach to every metric, event and service check collected by this Agent.
@@ -56,15 +74,27 @@ datadog:
       value: "model-testing"
       effect: "NoSchedule"
     image:
+      repository: "robustintelligencehq/datadog-agent"
+      pullSecrets:
+        - name: ${docker_secret_name}
       tag: 7.32.3
+  clusterAgent:
+    image:
+      repository: "robustintelligencehq/datadog-cluster-agent"
+      pullSecrets:
+        - name: ${docker_secret_name}
+      tag: 1.14.0
 
 velero:
   image:
+    repository: "${docker_registry}/robustintelligencehq/velero"
     # explicitly state Velero version used with this helm chart
     tag: "v1.6.3"
+    imagePullSecrets:
+      - ${docker_secret_name}
   initContainers:
     - name: velero-plugin-for-aws
-      image: velero/velero-plugin-for-aws:v1.2.1
+      image: "${docker_registry}/robustintelligencehq/velero-plugin-for-aws:v1.2.1"
       imagePullPolicy: IfNotPresent
       volumeMounts:
         - mountPath: /target

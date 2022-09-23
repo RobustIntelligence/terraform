@@ -249,9 +249,9 @@ variable "server_worker_group_max_size" {
 }
 
 variable "model_testing_worker_group_instance_types" {
-  description = "Instance types for the model testing worker group. Will spin up one asg per instance type."
+  description = "Instance types for the model testing worker group."
   type        = list(string)
-  default     = ["t2.xlarge"]
+  default     = ["t2.xlarge", "t3.xlarge", "t3a.xlarge"]
 }
 
 variable "model_testing_worker_group_min_size" {
@@ -377,13 +377,13 @@ variable "rime_secrets_name" {
 variable "use_blob_store" {
   description = "Whether to use blob store for the cluster."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "use_file_upload_service" {
   description = "Whether to use file upload service."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "eks_cluster_node_iam_policies" {
@@ -424,12 +424,6 @@ variable "enable_api_key_auth" {
   default     = true
 }
 
-variable "enable_auth" {
-  description = "Use authentication for the frontend"
-  type        = bool
-  default     = true
-}
-
 variable "enable_additional_mongo_metrics" {
   description = "If enabled, mongo will expose additional collection-level metrics to the datadog agent"
   type        = bool
@@ -459,3 +453,69 @@ EOT
   }))
   default = []
 }
+
+variable "include_internal_agent" {
+  description = "If false, deploys all control planes without an internal agent (i.e. a 'split' deployment)"
+  type        = bool
+  default     = true
+}
+
+variable "use_rmq_health" {
+  description = "Whether to start the rmq-health service."
+  type        = bool
+  default     = true
+}
+
+variable "use_rmq_resource_cleaner" {
+  description = "Whether to use the rmq resource cleaner given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_resource_cleaner_frequency" {
+  description = "The frequency for running the rmq resource cleaner."
+  type        = string
+  default     = "5m"
+}
+
+variable "use_rmq_metrics_updater" {
+  description = "Whether to use the rmq metrics updater given that the rmq-health service is used."
+  type        = bool
+  default     = true
+}
+
+variable "rmq_metrics_updater_frequency" {
+  description = "The frequency for updating the rmq metrics."
+  type        = string
+  default     = "1s"
+}
+
+variable "docker_registry" {
+  description = "The name of the docker registry holding all of the chart images"
+  type = string
+  default = "docker.io"
+}
+variable "server_worker_groups_overrides" {
+  description = "A dict of overrides for the server worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  type        = any
+  default     = {}
+}
+
+variable "model_testing_worker_groups_overrides" {
+  description = "A dict of overrides for the model testing worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  type        = any
+  default     = {}
+}
+
+variable "overwrite_license" {
+  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
+  type = bool
+  default = false
+}
+
+variable "create_scheduled_ct" {
+  description = "Whether to deploy a RIME Scheduled CT Cron Job"
+  type        = bool
+  default     = false
+}
+
