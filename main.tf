@@ -81,9 +81,9 @@ module "route53" {
 data "aws_acm_certificate" "this_zone_acm_certificate" {
   count = local.rime_domain != "" ? 1 : 0
 
-  depends_on = [module.route53]
-  domain     = local.acm_domain
-  statuses   = ["PENDING_VALIDATION", "ISSUED"]
+  depends_on  = [module.route53]
+  domain      = local.acm_domain
+  statuses    = ["PENDING_VALIDATION", "ISSUED"]
   most_recent = true
 }
 
@@ -115,25 +115,27 @@ resource "aws_security_group_rule" "internal_load_balancer_security_group_rules"
 }
 
 module "rime_helm_release" {
-  source = "./modules/rime_helm_release"
-  release_name = each.value.primary ? "rime" : "rime-${each.key}"
+  source        = "./modules/rime_helm_release"
+  release_name  = each.value.primary ? "rime" : "rime-${each.key}"
   for_each      = { for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace => k8s_namespace }
   name          = each.key
   k8s_namespace = each.key
 
   acm_cert_arn                = local.rime_domain != "" ? data.aws_acm_certificate.this_zone_acm_certificate[0].arn : ""
   create_managed_helm_release = var.create_managed_helm_release
-  docker_registry =           var.docker_registry
+  docker_registry             = var.docker_registry
   domain                      = each.value.primary ? local.rime_domain : "${each.key}-${local.rime_domain}"
   image_registry_config = {
-    enable                       = var.image_registry_config.enable
+    registry_type                = var.image_registry_config.enable ? "ecr" : null
     allow_external_custom_images = var.image_registry_config.allow_external_custom_images
-    registry_id                  = var.image_registry_config.enable ? local.ecr_account_part_map["account_id"] : ""
-    image_builder_role_arn       = var.image_registry_config.enable ? module.ecr_iam[0].ecr_image_builder_role_arn : ""
-    repo_manager_role_arn        = var.image_registry_config.enable ? module.ecr_iam[0].ecr_repo_manager_role_arn : ""
-    // The repository prefix used by each namespace is given an additional specifier
-    // for the namespace to ensure that the image names of each namespace are unique.
-    repository_prefix = var.image_registry_config.enable ? join("/", [local.cluster_prefix_for_image_repo, each.key]) : ""
+    ecr_config = var.image_registry_config.enable ? {
+      registry_id = local.ecr_account_part_map["account_id"]
+      // The repository prefix used by each namespace is given an additional specifier
+      // for the namespace to ensure that the image names of each namespace are unique.
+      repository_prefix = join("/", [local.cluster_prefix_for_image_repo, each.key])
+    } : null
+    image_builder_role_arn = module.ecr_iam[0].ecr_image_builder_role_arn
+    repo_manager_role_arn  = module.ecr_iam[0].ecr_repo_manager_role_arn
   }
   helm_values_output_dir            = var.helm_values_output_dir
   internal_lbs                      = var.internal_lbs
@@ -180,7 +182,7 @@ module "rime_kube_system_helm_release" {
   cluster_name                = var.cluster_name
   create_managed_helm_release = var.create_managed_helm_release
   domains                     = [for k8s_namespace in var.k8s_namespaces : k8s_namespace.primary ? local.rime_domain : "${k8s_namespace.namespace}-${local.rime_domain}"]
-  docker_registry =           var.docker_registry
+  docker_registry             = var.docker_registry
   helm_values_output_dir      = var.helm_values_output_dir
   install_cluster_autoscaler  = var.install_cluster_autoscaler
   install_external_dns        = var.install_external_dns
@@ -199,7 +201,7 @@ module "rime_extras_helm_release" {
   source = "./modules/rime_extras_helm_release"
 
   create_managed_helm_release = var.create_managed_helm_release
-  docker_registry =           var.docker_registry
+  docker_registry             = var.docker_registry
   helm_values_output_dir      = var.helm_values_output_dir
   install_datadog             = var.install_datadog
   install_velero              = var.install_velero
@@ -227,7 +229,6 @@ module "s3_blob_store" {
   k8s_namespace        = each.value
   oidc_provider_url    = local.stripped_oidc_provider_url
   resource_name_suffix = var.resource_name_suffix
-
   tags = var.tags
 }
 
@@ -257,7 +258,7 @@ module "rime_agent" {
   create_k8s_namespace = each.key != each.value.cp_namespace
 
   firewall_server_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-firewall-server.${each.value.cp_namespace}:5002"
-  data_collector_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-data-collector-server.${each.value.cp_namespace}:5015"
+  data_collector_addr       = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-data-collector-server.${each.value.cp_namespace}:5015"
   grpc_web_server_addr      = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-grpc-web-server.${each.value.cp_namespace}:5011"
   job_manager_server_addr   = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-upload-server.${each.value.cp_namespace}:5000"
   agent_manager_server_addr = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-agent-manager-server.${each.value.cp_namespace}:5016"
@@ -265,9 +266,14 @@ module "rime_agent" {
   request_queue_proxy_addr  = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-request-queue-proxy.${each.value.cp_namespace}:5014"
 
   model_test_job_config_map = local.model_test_job_config_map
+  log_archival_config = {
+    enable = var.enable_log_archival && var.use_blob_store
+    bucket_name = module.s3_blob_store[each.value.cp_namespace].s3_blob_store_bucket_name
+  }
+  oidc_provider_url = local.stripped_oidc_provider_url
+
   depends_on = [
     module.eks,
     module.rime_helm_release,
   ]
-
 }

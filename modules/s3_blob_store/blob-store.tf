@@ -23,6 +23,23 @@ resource "aws_s3_bucket_versioning" "s3_blob_store_bucket" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "log_archival_ttl" {
+  count = var.use_blob_store ? 1 : 0
+  bucket = aws_s3_bucket.s3_blob_store_bucket[0].id
+
+  rule {
+    expiration {
+      days = 7
+    }
+
+    filter {
+      prefix = "logs/"
+    }
+    id = "logs"
+    status = "Enabled"
+  }
 
 }
 

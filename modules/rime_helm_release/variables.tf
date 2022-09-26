@@ -10,21 +10,49 @@ variable "create_managed_helm_release" {
   default     = false
 }
 
-// See https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html
-// for repository naming rules.
 variable "image_registry_config" {
   description = "Settings that configure the ECR registry used for RIME managed images."
   type = object({
-    enable                       = bool
+    registry_type                = optional(string)
     allow_external_custom_images = bool
-    image_builder_role_arn       = string
-    registry_id                  = string
-    repo_manager_role_arn        = string
-    repository_prefix            = string
+    ecr_config = optional(object({
+      registry_id       = string
+      repository_prefix = string
+    }))
+    gar_config = optional(object({
+      location   = string
+      project    = string
+      repository = string
+    }))
+    // TODO: refactor these variables into something that is platform agnostic.
+    image_builder_role_arn = string
+    repo_manager_role_arn  = string
   })
   validation {
-    condition     = !var.image_registry_config.enable || (can(regex("^[0-9]{12}$", var.image_registry_config.registry_id)) && can(regex("^[a-z][a-z0-9]*(?:[/_-][a-z0-9]+)*$", var.image_registry_config.repository_prefix)))
-    error_message = "The ecr registry id must be a 12 digit aws_account_id and the ecr repository prefix must be 1 or more lowercase alphanumeric words separated by a '-', '_', or '/' where the first character is a letter."
+    condition = (
+      (
+        // See https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html
+        // for repository naming rules.
+        var.image_registry_config.registry_type != "ecr" || (
+          can(regex("^[0-9]{12}$", var.image_registry_config.ecr_config.registry_id)) &&
+          can(regex("^[a-z][a-z0-9]*(?:[/_-][a-z0-9]+)*$", var.image_registry_config.ecr_config.repository_prefix))
+        )
+        ) && (
+        // See https://cloud.google.com/compute/docs/naming-resources
+        // for GCP naming conventions for resources.
+        var.image_registry_config.registry_type != "gar" || (
+          can(regex("^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$", var.image_registry_config.gar_config.project)) &&
+          can(regex("^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$", var.image_registry_config.gar_config.repository))
+        )
+      )
+    )
+    error_message = (
+      var.image_registry_config.registry_type == "ecr" ?
+      "The ecr registry id must be a 12 digit aws_account_id and the ecr repository prefix must be 1 or more lowercase alphanumeric words separated by a '-', '_', or '/' where the first character is a letter." :
+      var.image_registry_config.registry_type == "gar" ?
+      "The gar config is malformed" :
+      "unknown registry type: ${var.image_registry_config.registry_type}"
+    )
   }
 }
 
@@ -238,8 +266,8 @@ variable "docker_registry" {
 
 variable "overwrite_license" {
   description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
-  type = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "release_name" {
