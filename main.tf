@@ -227,7 +227,6 @@ module "s3_blob_store" {
   k8s_namespace        = each.value
   oidc_provider_url    = local.stripped_oidc_provider_url
   resource_name_suffix = var.resource_name_suffix
-
   tags = var.tags
 }
 
@@ -265,9 +264,14 @@ module "rime_agent" {
   request_queue_proxy_addr  = "${each.value.cp_release_name != "" ? each.value.cp_release_name : "rime"}-request-queue-proxy.${each.value.cp_namespace}:5014"
 
   model_test_job_config_map = local.model_test_job_config_map
+  log_archival_config = {
+    enable = var.enable_log_archival && var.use_blob_store
+    bucket_name = module.s3_blob_store[each.value.cp_namespace].s3_blob_store_bucket_name
+  }
+  oidc_provider_url = local.stripped_oidc_provider_url
+
   depends_on = [
     module.eks,
     module.rime_helm_release,
   ]
-
 }
