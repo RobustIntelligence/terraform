@@ -380,6 +380,13 @@ variable "use_blob_store" {
   default     = true
 }
 
+
+variable "enable_log_archival" {
+  description = "Whether to archive logs to blob store."
+  type        = bool
+  default     = false
+}
+
 variable "use_file_upload_service" {
   description = "Whether to use file upload service."
   type        = bool
