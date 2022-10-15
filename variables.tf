@@ -380,6 +380,13 @@ variable "use_blob_store" {
   default     = true
 }
 
+
+variable "enable_log_archival" {
+  description = "Whether to archive logs to blob store."
+  type        = bool
+  default     = false
+}
+
 variable "use_file_upload_service" {
   description = "Whether to use file upload service."
   type        = bool
@@ -402,12 +409,6 @@ variable "internal_lbs" {
   description = "Whether or not the load balancers should be spun up as internal."
   type        = bool
   default     = false
-}
-
-variable "use_dns" {
-  description = "Whether or not we we should set up DNS for your cluster"
-  type        = bool
-  default     = true
 }
 
 variable "ip_allowlist" {
@@ -492,8 +493,8 @@ variable "rmq_metrics_updater_frequency" {
 
 variable "docker_registry" {
   description = "The name of the docker registry holding all of the chart images"
-  type = string
-  default = "docker.io"
+  type        = string
+  default     = "docker.io"
 }
 variable "server_worker_groups_overrides" {
   description = "A dict of overrides for the server worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
@@ -509,8 +510,8 @@ variable "model_testing_worker_groups_overrides" {
 
 variable "overwrite_license" {
   description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
-  type = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "create_scheduled_ct" {
