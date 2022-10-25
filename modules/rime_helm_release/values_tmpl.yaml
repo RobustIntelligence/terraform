@@ -47,7 +47,7 @@ modelTestImage:
 
 firewall:
   enabled: true
-  
+
 scheduledCT:
   scheduledCTCRON:
       create: ${create_scheduled_ct}
@@ -60,7 +60,7 @@ imagePullSecrets:
 
 rimeJwt: ${rime_jwt}
 
-userpilotFlow: ${user_pilot_flow}
+userpilotFlow: "${user_pilot_flow}"
 
 mongodb:
   image:
@@ -155,8 +155,8 @@ ingress-nginx:
     image:
       registry: "${docker_registry}"
       image: "robustintelligencehq/ingress-nginx-controller"
-      tag: "v1.3.0"
-      digest: "sha256:067673df26a65ec5c2d5b30f25db869bad4d7d391fc81882250134577e581ef0"
+      tag: "v1.3.1"
+      digest: "sha256:d3642f55a6a7a102a9a579b3382fe73869c73890de4c94f28e36ba5e07925944"
     scope:
       enabled: true
       namespace: ${namespace}
@@ -169,11 +169,15 @@ ingress-nginx:
         service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
         service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
-  %{ if length(ip_allowlist) > 0 ~}
+%{ if length(ip_allowlist) > 0 ~}
         service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-  %{ endif ~}
+%{ endif ~}
+%{ if length(lb_security_groups) > 0 ~}
         ${lb_security_groups}
+%{ endif ~}
+%{ if length(lb_tags) > 0 ~}
         ${lb_tags}
+%{ endif ~}
 
 kong:
   image:
@@ -196,11 +200,15 @@ kong:
       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
       service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
       service.beta.kubernetes.io/aws-load-balancer-alpn-policy: "HTTP2Preferred"
-  %{ if length(ip_allowlist) > 0 ~}
+%{ if length(ip_allowlist) > 0 ~}
       service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-  %{ endif ~}
+%{ endif ~}
+%{ if length(lb_security_groups) > 0 ~}
       ${lb_security_groups}
+%{ endif ~}
+%{ if length(lb_tags) > 0 ~}
       ${lb_tags}
+%{ endif ~}
 
 redis:
   image:
@@ -219,7 +227,7 @@ rmqHealth:
   resourceCleaner:
     create: ${use_rmq_resource_cleaner}
     frequency: ${rmq_resource_cleaner_frequency}
-  metricsUpdater: 
+  metricsUpdater:
     create: ${use_rmq_metrics_updater}
     frequency: ${rmq_metrics_updater_frequency}
 
