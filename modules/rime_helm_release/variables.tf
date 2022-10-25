@@ -238,8 +238,8 @@ variable "docker_registry" {
 
 variable "overwrite_license" {
   description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
-  type = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "release_name" {
