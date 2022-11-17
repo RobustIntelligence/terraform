@@ -1,5 +1,10 @@
 terraform {
   required_version = "> 0.14, < 2.0.0"
+  // DO NOT USE experiment module_variable_optional_attrs.  It is not compatible
+  // with future versions of terraform >= 1.3.0
+  //
+  // TODO(11974): allow for optional() variable declarations by requiring
+  // a version >= 1.3.0.
 
   required_providers {
     helm = {
@@ -9,9 +14,5 @@ terraform {
       version = "> 2.1.0, < 3.0.0"
     }
 
-    random = {
-      source  = "hashicorp/random"
-      version = "3.0.0"
-    }
   }
 }
