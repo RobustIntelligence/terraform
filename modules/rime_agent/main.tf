@@ -7,6 +7,13 @@ locals {
   # the service account name for a running model test job.
   # This name is used in both the helm chart to create the service account and s3_iam module to link S3 access via OIDC.
   model_test_job_service_account_name = "rime-agent-model-tester"
+
+
+  hash_id = sha256("agent_${var.k8s_namespace}_${var.resource_name_suffix})")
+
+  # Bounded by the bucket name length condition of <= 63 so it must be <= 53 as length(rime-blob-) = 10.
+  # Because k8s_namespace is <= 12, and resource_name_suffix is <= 25, hash_id is truncated to length 14.
+  s3_blob_store_agent_access_policy_suffix = "${substr(local.hash_id, 0, 14)}-${var.k8s_namespace}-${var.resource_name_suffix}"
 }
 
 data "aws_secretsmanager_secret_version" "rime-secrets" {
@@ -90,9 +97,16 @@ resource "local_file" "terraform_provided_values" {
     agent_manager_server_addr           = var.agent_manager_server_addr
     model_test_job_service_account_name = local.model_test_job_service_account_name
     model_test_job_config_map           = var.model_test_job_config_map
+    log_archival_config = {
+      enable      = var.log_archival_config.enable
+      bucket_name = var.log_archival_config.bucket_name
+      role_arn    = var.log_archival_config.enable ? module.iam_assumable_role_with_oidc_for_log_archival[0].this_iam_role_arn : ""
+    }
   })
   filename = format("%s/rime_agent_values_terraform_%s.yaml", local.output_dir, var.k8s_namespace)
 }
+
+
 # The release of the RIME Helm chart in a given k8s namespace.
 resource "helm_release" "rime_agent" {
   count = var.create_managed_helm_release ? 1 : 0
