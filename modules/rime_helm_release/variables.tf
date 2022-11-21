@@ -10,21 +10,53 @@ variable "create_managed_helm_release" {
   default     = false
 }
 
-// See https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html
-// for repository naming rules.
 variable "image_registry_config" {
   description = "Settings that configure the ECR registry used for RIME managed images."
   type = object({
-    enable                       = bool
+    registry_type                = string
     allow_external_custom_images = bool
-    image_builder_role_arn       = string
-    registry_id                  = string
-    repo_manager_role_arn        = string
-    repository_prefix            = string
+    // TODO(11974): make this optional once we switch to TF >= 1.3.0.
+    ecr_config = object({
+      registry_id       = string
+      repository_prefix = string
+    })
+    // TODO(11974): make this optional once we switch to TF >= 1.3.0.
+    gar_config = object({
+      location   = string
+      project    = string
+      repository = string
+    })
+    // TODO: refactor these variables into something that is platform agnostic.
+    image_builder_role_arn = string
+    repo_manager_role_arn  = string
   })
   validation {
-    condition     = !var.image_registry_config.enable || (can(regex("^[0-9]{12}$", var.image_registry_config.registry_id)) && can(regex("^[a-z][a-z0-9]*(?:[/_-][a-z0-9]+)*$", var.image_registry_config.repository_prefix)))
-    error_message = "The ecr registry id must be a 12 digit aws_account_id and the ecr repository prefix must be 1 or more lowercase alphanumeric words separated by a '-', '_', or '/' where the first character is a letter."
+    condition = (
+      (
+        // See https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html
+        // for repository naming rules.
+        var.image_registry_config.registry_type != "ecr" || (
+          var.image_registry_config.ecr_config != null &&
+          can(regex("^[0-9]{12}$", var.image_registry_config.ecr_config.registry_id)) &&
+          can(regex("^[a-z][a-z0-9]*(?:[/_-][a-z0-9]+)*$", var.image_registry_config.ecr_config.repository_prefix))
+        )
+        ) && (
+        // See https://cloud.google.com/compute/docs/naming-resources
+        // for GCP naming conventions for resources.
+        var.image_registry_config.registry_type != "gar" || (
+          var.image_registry_config.gar_config != null &&
+          can(regex("^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$", var.image_registry_config.gar_config.project)) &&
+          can(regex("^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$", var.image_registry_config.gar_config.repository))
+        )
+      )
+    )
+    error_message = (
+      var.image_registry_config.registry_type == "ecr" ?
+      "The ecr registry id must be a 12 digit aws_account_id and the ecr repository prefix must be 1 or more lowercase alphanumeric words separated by a '-', '_', or '/' where the first character is a letter." :
+      var.image_registry_config.registry_type == "gar" ?
+      "The gar config is malformed" :
+      "unknown registry type: ${var.image_registry_config.registry_type}"
+    )
   }
 }
 
@@ -163,9 +195,10 @@ variable "internal_lbs" {
 }
 
 variable "ip_allowlist" {
-  # Note: external client IP's are preserved by load balancer. You may also want to include the external IP for the
-  # cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server using that IP.
-  description = "CIDR's to add to allowlist for all ingresses. If not specified, all IP's are allowed."
+  # Note: external client IP addresses are preserved by load balancer. You may also want to include the external IP
+  # address for the cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server
+  # using that IP address.
+  description = "A set of CIDR routes to add to the allowlist for all ingresses. If not specified, all IP addresses are allowed."
   type        = list(string)
   default     = []
 }
@@ -231,15 +264,15 @@ variable "create_scheduled_ct" {
 }
 
 variable "docker_registry" {
-  description = "The name of the docker registry holding all of the chart images"
+  description = "The name of the Docker registry that holds the chart images"
   type        = string
   default     = "docker.io"
 }
 
 variable "overwrite_license" {
-  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
-  type = bool
-  default = false
+  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable is ignored during the first deployment."
+  type        = bool
+  default     = false
 }
 
 variable "release_name" {
