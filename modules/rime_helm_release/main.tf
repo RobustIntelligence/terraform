@@ -35,8 +35,8 @@ resource "local_file" "helm_values" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
     acm_cert_arn                    = var.acm_cert_arn
     docker_backend_image            = var.rime_docker_backend_image
-    docker_secret_name      = var.rime_docker_secret_name
-    docker_registry         = var.docker_registry
+    docker_secret_name              = var.rime_docker_secret_name
+    docker_registry                 = var.docker_registry
     docker_frontend_image           = var.rime_docker_frontend_image
     docker_image_builder_image      = var.rime_docker_image_builder_image
     docker_model_testing_image      = var.rime_docker_model_testing_image
@@ -71,7 +71,8 @@ resource "local_file" "helm_values" {
     create_scheduled_ct             = var.create_scheduled_ct
     overwrite_license               = var.overwrite_license
     release_name                    = var.release_name
-    })
+    datadog_tag_pod_annotation      = var.datadog_tag_pod_annotation
+  })
   filename = format("%s/values_%s.yaml", local.output_dir, var.k8s_namespace)
 }
 

@@ -380,6 +380,13 @@ variable "use_blob_store" {
   default     = true
 }
 
+
+variable "enable_log_archival" {
+  description = "Whether to archive logs to blob store."
+  type        = bool
+  default     = false
+}
+
 variable "use_file_upload_service" {
   description = "Whether to use file upload service."
   type        = bool
@@ -404,16 +411,11 @@ variable "internal_lbs" {
   default     = false
 }
 
-variable "use_dns" {
-  description = "Whether or not we we should set up DNS for your cluster"
-  type        = bool
-  default     = true
-}
-
 variable "ip_allowlist" {
-  # Note: external client IP's are preserved by load balancer. You may also want to include the external IP for the
-  # cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server using that IP.
-  description = "CIDR's to add to allowlist for all ingresses. If not specified, all IP's are allowed."
+  # Note: external client IP addresses are preserved by load balancer. You may also want to include the external IP
+  # address for the cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server
+  # using that IP address.
+  description = "A set of CIDR routes to add to the allowlist for all ingresses. If not specified, all IP addresses are allowed."
   type        = list(string)
   default     = []
 }
@@ -491,26 +493,26 @@ variable "rmq_metrics_updater_frequency" {
 }
 
 variable "docker_registry" {
-  description = "The name of the docker registry holding all of the chart images"
-  type = string
-  default = "docker.io"
+  description = "The name of the Docker registry that holds the chart images"
+  type        = string
+  default     = "docker.io"
 }
 variable "server_worker_groups_overrides" {
-  description = "A dict of overrides for the server worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  description = "A dictionary that specifies overrides for the server worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
   type        = any
   default     = {}
 }
 
 variable "model_testing_worker_groups_overrides" {
-  description = "A dict of overrides for the model testing worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  description = "A dictionary that specifies overrides for the model testing worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
   type        = any
   default     = {}
 }
 
 variable "overwrite_license" {
-  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
-  type = bool
-  default = false
+  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable is ignored during the first deployment."
+  type        = bool
+  default     = false
 }
 
 variable "create_scheduled_ct" {
@@ -519,3 +521,8 @@ variable "create_scheduled_ct" {
   default     = false
 }
 
+variable "datadog_tag_pod_annotation" {
+  description = "Pod annotation for Datadog tagging. Must be a string in valid JSON format, e.g. {\"tag\": \"val\"}."
+  type        = string
+  default     = ""
+}
