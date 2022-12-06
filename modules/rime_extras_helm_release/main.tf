@@ -9,8 +9,8 @@ resource "local_file" "rime_extras" {
     datadog_api_key          = var.datadog_api_key
     datadog_user_tag         = var.rime_user
     datadog_rime_version_tag = var.rime_version
-    docker_registry         = var.docker_registry
-    docker_secret_name      = var.rime_docker_secret_name
+    docker_registry          = var.docker_registry
+    docker_secret_name       = var.rime_docker_secret_name
     install_velero           = var.install_velero
     velero_s3_bucket_name    = var.install_velero ? aws_s3_bucket.velero_s3_bucket[0].bucket : ""
     velero_s3_region         = var.install_velero ? aws_s3_bucket.velero_s3_bucket[0].region : ""
