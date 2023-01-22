@@ -6,14 +6,6 @@ locals {
   load_balancer_security_groups = join(",", var.load_balancer_security_groups_ids)
 }
 
-resource "random_password" "jwt_secret" {
-  length  = 64
-  lower   = true
-  number  = true
-  special = true
-  upper   = true
-}
-
 #Storage class that allows expansion in case we need to resize db later. Used in mongo helm chart
 resource "kubernetes_storage_class" "mongo_storage" {
   metadata {
@@ -35,14 +27,15 @@ resource "local_file" "helm_values" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
     acm_cert_arn                    = var.acm_cert_arn
     docker_backend_image            = var.rime_docker_backend_image
-    docker_secret_name      = var.rime_docker_secret_name
-    docker_registry         = var.docker_registry
+    docker_secret_name              = var.rime_docker_secret_name
+    docker_registry                 = var.docker_registry
     docker_frontend_image           = var.rime_docker_frontend_image
     docker_image_builder_image      = var.rime_docker_image_builder_image
+    docker_managed_base_image       = var.rime_docker_managed_base_image
     docker_model_testing_image      = var.rime_docker_model_testing_image
     domain                          = var.domain == "" ? "placeholder" : var.domain
+    enable_external_agent           = var.enable_external_agent
     image_registry_config           = var.image_registry_config
-    jwt_secret                      = random_password.jwt_secret.result
     lb_security_groups              = length(local.load_balancer_security_groups) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-extra-security-groups: \"${local.tags}\"" : ""
     lb_tags                         = length(local.tags) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: \"${local.tags}\"" : ""
     lb_type                         = var.internal_lbs ? "internal" : "internet-facing"
@@ -60,6 +53,9 @@ resource "local_file" "helm_values" {
     version                         = var.rime_version
     ip_allowlist                    = var.ip_allowlist
     enable_api_key_auth             = var.enable_api_key_auth
+    disable_vault_tls               = var.disable_vault_tls
+    enable_mongo_tls                = var.enable_mongo_tls
+    enable_redis_tls                = var.enable_redis_tls
     enable_additional_mongo_metrics = var.enable_additional_mongo_metrics
     model_test_job_config_map       = var.model_test_job_config_map
     use_rmq_health                  = var.use_rmq_health
@@ -71,7 +67,8 @@ resource "local_file" "helm_values" {
     create_scheduled_ct             = var.create_scheduled_ct
     overwrite_license               = var.overwrite_license
     release_name                    = var.release_name
-    })
+    datadog_tag_pod_annotation      = var.datadog_tag_pod_annotation
+  })
   filename = format("%s/values_%s.yaml", local.output_dir, var.k8s_namespace)
 }
 
@@ -94,7 +91,8 @@ resource "helm_release" "rime" {
   wait              = false
 
   values = [
-    local_file.helm_values.content
+    local_file.helm_values.content,
+    length(var.override_values_file_path) > 0 ? file(var.override_values_file_path) : "",
   ]
 
   depends_on = [kubernetes_storage_class.mongo_storage]
