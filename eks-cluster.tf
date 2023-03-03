@@ -1,41 +1,15 @@
 provider "kubernetes" {
   host                   = data.aws_eks_cluster.cluster.endpoint
   token                  = data.aws_eks_cluster_auth.cluster.token
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
 }
 
 provider "helm" {
   kubernetes {
     host                   = data.aws_eks_cluster.cluster.endpoint
     token                  = data.aws_eks_cluster_auth.cluster.token
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
   }
-}
-
-#Permissions based off this guide: https://docs.aws.amazon.com/AmazonECR/latest/userguide/ECR_on_EKS.html
-resource "aws_iam_policy" "node_ecr_policy" {
-  count = var.allow_ecr_pull ? 1 : 0
-
-  name = "eks_node_ecr_policy_${var.resource_name_suffix}"
-  path = "/"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action : [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:GetAuthorizationToken"
-        ]
-        Effect   = "Allow"
-        Resource = ["*"]
-      },
-    ]
-  })
-
-  tags = var.tags
 }
 
 # Provisions an EKS cluster for RIME to be deployed onto.
@@ -47,9 +21,11 @@ module "eks" {
 
   count = var.create_eks ? 1 : 0
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
-  subnets         = var.private_subnet_ids
+  cluster_name                    = var.cluster_name
+  cluster_version                 = var.cluster_version
+  cluster_endpoint_private_access = !var.public_cluster_endpoint
+  cluster_endpoint_public_access  = var.public_cluster_endpoint
+  subnets                         = var.private_subnet_ids
 
   tags = var.tags
 
@@ -68,6 +44,7 @@ module "eks" {
       asg_min_size         = var.server_worker_group_min_size
       asg_desired_capacity = 4
       asg_max_size         = var.server_worker_group_max_size
+      root_encrypted       = true
       key_name             = var.node_ssh_key
       tags = [
         {
@@ -83,19 +60,20 @@ module "eks" {
       ]
     }, var.server_worker_groups_overrides),
     merge({
-      name                 = "rime-worker-group-model-testing"
-      instance_type        = var.model_testing_worker_group_instance_types[0]
+      name                    = "rime-worker-group-model-testing"
+      instance_type           = var.model_testing_worker_group_instance_types[0]
       override_instance_types = slice(var.model_testing_worker_group_instance_types, 1, length(var.model_testing_worker_group_instance_types))
-      asg_min_size         = var.model_testing_worker_group_min_size
-      asg_desired_capacity = var.model_testing_worker_group_min_size
-      asg_max_size         = var.model_testing_worker_group_max_size
-      key_name             = var.node_ssh_key
+      asg_min_size            = var.model_testing_worker_group_min_size
+      asg_desired_capacity    = var.model_testing_worker_group_min_size
+      asg_max_size            = var.model_testing_worker_group_max_size
+      root_encrypted          = true
+      key_name                = var.node_ssh_key
       # Mixed Instance Policy Configurations. May need to tune. Currently we either use all spot or all on-demand.
       # Mixed Instance Policy docs: https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_MixedInstancesPolicy.html
-      on_demand_base_capacity = "0"
+      on_demand_base_capacity                  = "0"
       on_demand_percentage_above_base_capacity = var.model_testing_worker_group_use_spot ? "0" : "100"
-      spot_allocation_strategy = "lowest-price"
-      kubelet_extra_args   = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
+      spot_allocation_strategy                 = "lowest-price"
+      kubelet_extra_args                       = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
 
       tags = [
         {
@@ -116,7 +94,7 @@ module "eks" {
       ]
     }, var.model_testing_worker_groups_overrides)
   ]
-  workers_additional_policies = var.allow_ecr_pull ? concat(var.eks_cluster_node_iam_policies, [aws_iam_policy.node_ecr_policy[0].arn]) : var.eks_cluster_node_iam_policies
+  workers_additional_policies = var.eks_cluster_node_iam_policies
 
   map_roles        = var.map_roles
   map_users        = var.map_users
@@ -151,9 +129,6 @@ resource "kubernetes_secret" "docker-secrets" {
   for_each = { for k8s_namespace in concat(var.k8s_namespaces, [{
     namespace = "kube-system"
     primary   = false
-  }, {
-    namespace = "rime-extras"
-    primary   = false
   }]) : k8s_namespace.namespace => k8s_namespace }
 
   metadata {
@@ -175,6 +150,26 @@ resource "kubernetes_secret" "docker-secrets" {
   type       = "kubernetes.io/dockerconfigjson"
 }
 
+resource "kubernetes_secret" "docker-secrets-extras" {
+  metadata {
+    name      = var.rime_docker_secret_name
+    namespace = "rime-extras"
+  }
+
+  data = {
+    ".dockerconfigjson" = jsonencode({
+      auths = {
+        for creds in local.json_secrets["docker-logins"] : creds["docker-server"] => merge(
+          { for k, v in creds : k => v if v != null },
+          { auth = base64encode("${creds["docker-username"]}:${creds["docker-password"]}") },
+        )
+      }
+    })
+  }
+  depends_on = [module.rime_extras_helm_release]
+  type       = "kubernetes.io/dockerconfigjson"
+}
+
 resource "kubernetes_secret" "notifications-secrets" {
   // Only create if notifications secrets are configured
   for_each = lookup(local.json_secrets, "smtp_email", "") != "" ? { for k8s_namespace in var.k8s_namespaces : k8s_namespace.namespace => k8s_namespace } : {}
@@ -185,10 +180,10 @@ resource "kubernetes_secret" "notifications-secrets" {
   }
 
   data = {
-    smtp_email      = local.json_secrets["smtp_email"]
-    smtp_password   = local.json_secrets["smtp_password"]
-    smtp_server     = local.json_secrets["smtp_server"]
-    smtp_port       = local.json_secrets["smtp_port"]
+    smtp_email    = local.json_secrets["smtp_email"]
+    smtp_password = local.json_secrets["smtp_password"]
+    smtp_server   = local.json_secrets["smtp_server"]
+    smtp_port     = local.json_secrets["smtp_port"]
   }
   depends_on = [kubernetes_namespace.auto]
 }
@@ -203,8 +198,8 @@ resource "kubernetes_secret" "admin-secrets" {
   }
 
   data = {
-    admin-username   = local.json_secrets["admin_username"]
-    admin-password   = local.json_secrets["admin_password"]
+    admin-username = local.json_secrets["admin_username"]
+    admin-password = local.json_secrets["admin_password"]
   }
   depends_on = [kubernetes_namespace.auto]
 }
@@ -220,9 +215,9 @@ resource "kubernetes_secret" "oidc-secrets" {
 
   // We only use oauth for oidc, hence why we call it oidc secrets
   data = {
-    client_id       = local.json_secrets["oauth_client_id"]
-    client_secret   = local.json_secrets["oauth_client_secret"]
-    well_known_url  = local.json_secrets["oauth_well_known_url"]
+    client_id      = local.json_secrets["oauth_client_id"]
+    client_secret  = local.json_secrets["oauth_client_secret"]
+    well_known_url = local.json_secrets["oauth_well_known_url"]
   }
   depends_on = [kubernetes_namespace.auto]
 }
@@ -264,4 +259,48 @@ resource "aws_ec2_tag" "public_subnet_elb_tag" {
   resource_id = each.key
   key         = "kubernetes.io/cluster/${var.cluster_name}"
   value       = "shared"
+}
+
+module "iam_assumable_role_with_oidc_for_ebs_controller" {
+  count   = var.cluster_version == "1.23" ? 1 : 0
+  source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version = "~> 3.0"
+
+  create_role = true
+
+  role_name        = "rime_ebs_${var.cluster_name}" # must be <= 64
+  role_description = "Role to provision block storage for rime cluster."
+
+  provider_url = var.create_eks ? replace(module.eks[0].cluster_oidc_issuer_url, "https://", "") : ""
+
+  role_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  ]
+
+  number_of_role_policy_arns = 1
+
+  oidc_fully_qualified_subjects = [
+    "system:serviceaccount:kube-system:ebs-csi-controller-sa",
+  ]
+
+  tags = var.tags
+}
+
+resource "time_sleep" "wait_3_minutes" {
+  count = var.create_eks ? 1 : 0
+  depends_on = [
+    module.eks
+  ]
+  create_duration = "3m"
+}
+
+resource "aws_eks_addon" "ebs_csi_driver" {
+  count             = var.cluster_version == "1.23" ? 1 : 0
+  cluster_name      = var.create_eks ? module.eks[0].cluster_id : ""
+  addon_name        = "aws-ebs-csi-driver"
+  resolve_conflicts = "OVERWRITE"
+  depends_on = [
+    time_sleep.wait_3_minutes
+  ]
+  service_account_role_arn = var.cluster_version == "1.23" ? module.iam_assumable_role_with_oidc_for_ebs_controller[0].this_iam_role_arn : ""
 }
