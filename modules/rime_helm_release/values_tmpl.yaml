@@ -10,6 +10,13 @@ rime:
 %{ endif ~}
   enableApiKeyAuth: ${enable_api_key_auth}
   separateModelTestingGroup: ${separate_model_testing_group}
+  datadogTagPodAnnotation: '${datadog_tag_pod_annotation}'
+
+tls:
+  vaultDisabled: ${disable_vault_tls}
+  mongoEnabled: ${enable_mongo_tls}
+  redisEnabled: ${enable_redis_tls}
+  restEnabled: ${enable_rest_tls}
 
 autoscaling:
   enabled: true
@@ -29,8 +36,19 @@ resources:
 
 modelTestResources:
   requests:
-    memory: "4000Mi"
+    memory: "10Gi"
     cpu: "1500m"
+  limits:
+    memory: "16Gi"
+    cpu: "1500m"
+
+authResources:
+  requests:
+    memory: "300Mi"
+    cpu: "300m"
+  limits:
+    memory: "500Mi"
+    cpu: "500m"
 
 backendImage:
   name: "${docker_registry}/${docker_backend_image}:${version}"
@@ -47,7 +65,7 @@ modelTestImage:
 
 firewall:
   enabled: true
-  
+
 scheduledCT:
   scheduledCTCRON:
       create: ${create_scheduled_ct}
@@ -59,8 +77,6 @@ imagePullSecrets:
   - name: ${docker_secret_name}
 
 rimeJwt: ${rime_jwt}
-
-userpilotFlow: ${user_pilot_flow}
 
 mongodb:
   image:
@@ -97,16 +113,100 @@ mongodb:
     enabled: true
     storageClass: "${mongo_storage_class}"
     size: "${mongo_db_size}"
+%{ if enable_mongo_tls ~}
+  extraFlags:
+    - --tlsMode=requireTLS
+    - --tlsCAFile=/var/tmp/mongo-certs/ca.crt
+    - --tlsCertificateKeyFile=/var/tmp/mongo-certs/mongodb.pem
+  livenessProbe:
+    enabled: false
+  customLivenessProbe:
+    exec:
+      command:
+        - mongo
+        - --tls
+        - --tlsCertificateKeyFile=/var/tmp/mongo-certs/mongodb.pem
+        - --tlsCAFile=/var/tmp/mongo-certs/ca.crt
+        - --eval
+        - "db.adminCommand('ping')"
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: false
+  customReadinessProbe:
+    exec:
+      command:
+        - mongo
+        - --tls
+        - --tlsCertificateKeyFile=/var/tmp/mongo-certs/mongodb.pem
+        - --tlsCAFile=/var/tmp/mongo-certs/ca.crt
+        - --eval
+        - "db.adminCommand('ping')"
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 6
+  extraVolumeMounts:
+    - name: ${release_name}-mongo-certs
+      mountPath: "/var/tmp/mongo-certs"
+  extraVolumes:
+    - name: ${release_name}-mongo-certs
+      emptyDir: { }
+    - name: ${release_name}-mongo-tls
+      secret:
+        secretName: ${release_name}-mongo-tls
+  initContainers:
+    - name: prepare-cert-key
+      image: "docker.io/robustintelligencehq/rime-backend:latest"
+      imagePullPolicy: "Always"
+      env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      volumeMounts:
+        - name: ${release_name}-mongo-tls
+          mountPath: "/var/tmp/mongo-tls"
+        - name: ${release_name}-mongo-certs
+          mountPath: "/var/tmp/mongo-certs"
+      command:
+        - sh
+        - "-c"
+        - |
+          /bin/bash <<'EOF'
+
+          cp /var/tmp/mongo-tls/* /var/tmp/mongo-certs/
+
+          #Concatenate to a pem file for use as the client PEM file which can be used for both member and client authentication.
+          cat /var/tmp/mongo-certs/tls.crt /var/tmp/mongo-certs/tls.key > /var/tmp/mongo-certs/mongodb.pem
+          ls /var/tmp/mongo-certs
+          EOF
+%{ endif ~}
 
 # The following overrides are AWS specific.
 imageRegistry:
-  create: ${image_registry_config.enable}
-%{ if image_registry_config.enable ~}
+  create: ${image_registry_config.registry_type != null}
+%{ if image_registry_config.registry_type != null ~}
   config:
     imageRegistry:
+      baseImage:
+        name: "${docker_registry}/${docker_managed_base_image}"
+        registryType: dockerhub
+%{ if image_registry_config.registry_type == "ecr" ~}
       ecr:
-        registryID: "${image_registry_config.registry_id}"
-        repositoryPrefix: "${image_registry_config.repository_prefix}"
+        registryID: "${image_registry_config.ecr_config.registry_id}"
+        repositoryPrefix: "${image_registry_config.ecr_config.repository_prefix}"
+%{ endif ~}
+%{ if image_registry_config.registry_type == "gar" ~}
+      gar:
+        location: "${image_registry_config.gar_config.location}"
+        project: "${image_registry_config.gar_config.project}"
+        repository: "${image_registry_config.gar_config.repository}"
+%{ endif ~}
   dockerSecretName: "${docker_secret_name}"
   # Specification of the container image used for running the image builder jobs.
   image:
@@ -117,13 +217,13 @@ imageRegistry:
       # Annotations required to associate the image registry server account
       # with the AWS IAM role used to create, access and modify RIME's ECR repositories.
       annotations: {
-        eks.amazonaws.com/role-arn: ${image_registry_config.repo_manager_role_arn}
+        eks.amazonaws.com/role-arn: "${image_registry_config.repo_manager_role_arn}"
       }
     jobAccount:
       # Annotations required to associate the image builder job account
       # with the AWS IAM role used to push and pull images to RIME's ECR repositories.
       annotations: {
-        eks.amazonaws.com/role-arn: ${image_registry_config.image_builder_role_arn}
+        eks.amazonaws.com/role-arn: "${image_registry_config.image_builder_role_arn}"
       }
 %{ endif ~}
 
@@ -155,8 +255,8 @@ ingress-nginx:
     image:
       registry: "${docker_registry}"
       image: "robustintelligencehq/ingress-nginx-controller"
-      tag: "v1.3.0"
-      digest: "sha256:067673df26a65ec5c2d5b30f25db869bad4d7d391fc81882250134577e581ef0"
+      tag: "v1.3.1"
+      digest: "sha256:d3642f55a6a7a102a9a579b3382fe73869c73890de4c94f28e36ba5e07925944"
     scope:
       enabled: true
       namespace: ${namespace}
@@ -169,25 +269,34 @@ ingress-nginx:
         service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
         service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
-  %{ if length(ip_allowlist) > 0 ~}
+%{ if length(ip_allowlist) > 0 ~}
         service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-  %{ endif ~}
+%{ endif ~}
+%{ if length(lb_security_groups) > 0 ~}
         ${lb_security_groups}
+%{ endif ~}
+%{ if length(lb_tags) > 0 ~}
         ${lb_tags}
+%{ endif ~}
 
 kong:
+  deployment:
+    kong:
+      enabled: ${enable_external_agent}
   image:
     repository: "${docker_registry}/robustintelligencehq/kong"
     tag: "2.8"
     pullSecrets:
       - ${docker_secret_name}
   ingressController:
+    enabled: ${enable_external_agent}
     image:
       repository: "${docker_registry}/robustintelligencehq/kong-kubernetes-ingress-controller"
       tag: "2.2"
     watchNamespaces:
       - ${namespace}
   proxy:
+    enabled: ${enable_external_agent}
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "kong-proxy-tls"
@@ -196,12 +305,15 @@ kong:
       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
       service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
       service.beta.kubernetes.io/aws-load-balancer-alpn-policy: "HTTP2Preferred"
-  %{ if length(ip_allowlist) > 0 ~}
+%{ if length(ip_allowlist) > 0 ~}
       service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
-  %{ endif ~}
+%{ endif ~}
+%{ if length(lb_security_groups) > 0 ~}
       ${lb_security_groups}
+%{ endif ~}
+%{ if length(lb_tags) > 0 ~}
       ${lb_tags}
-
+%{ endif ~}
 redis:
   image:
     registry: "${docker_registry}"
@@ -209,7 +321,15 @@ redis:
     tag: "7.0.4-debian-11-r4"
     pullSecrets:
       - ${docker_secret_name}
-
+%{ if enable_redis_tls ~}
+  tls:
+    enabled: true
+    authClients: true
+    existingSecret: ${release_name}-redis-tls
+    certFilename: "tls.crt"
+    certKeyFilename: "tls.key"
+    certCAFilename: "ca.crt"
+%{ endif ~}
 
 datasetManager:
   useFileUploadService: ${use_file_upload_service}
@@ -219,7 +339,7 @@ rmqHealth:
   resourceCleaner:
     create: ${use_rmq_resource_cleaner}
     frequency: ${rmq_resource_cleaner_frequency}
-  metricsUpdater: 
+  metricsUpdater:
     create: ${use_rmq_metrics_updater}
     frequency: ${rmq_metrics_updater_frequency}
 
@@ -231,23 +351,37 @@ vault:
   global:
     imagePullSecrets:
       - name: ${docker_secret_name}
+    tlsDisable: ${disable_vault_tls}
   injector:
     image:
-      registry: "docker.io"
-      repository: "robustintelligencehq/vault-k8s"
+      repository: "${docker_registry}/robustintelligencehq/vault-k8s"
       tag: "v1.0"
   server:
     image:
-      registry: "docker.io"
-      repository: "robustintelligencehq/vault"
+      repository: "${docker_registry}/robustintelligencehq/vault"
       tag: "v1.11.3"
+%{ if !disable_vault_tls ~}
+    volumes:
+      - name: ${release_name}-vault-tls
+        secret:
+          secretName: ${release_name}-vault-tls
+    volumeMounts:
+      - name: ${release_name}-vault-tls
+        mountPath: "/var/tmp/vault-server-tls"
+        readOnly: true
+%{ endif ~}
     ha:
       raft:
         config: |
           listener "tcp" {
             address = "[::]:8200"
             cluster_address = "[::]:8201"
-            tls_disable = true
+            tls_disable = ${disable_vault_tls}
+%{ if !disable_vault_tls ~}
+            tls_cert_file = "/var/tmp/vault-server-tls/tls.crt"
+            tls_key_file  = "/var/tmp/vault-server-tls/tls.key"
+            tls_client_ca_file = "/var/tmp/vault-server-tls/ca.crt"
+%{ endif ~}
           }
           storage "raft" {
             path = "/vault/data"

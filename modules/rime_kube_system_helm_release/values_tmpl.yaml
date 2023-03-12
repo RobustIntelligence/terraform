@@ -52,3 +52,25 @@ metrics-server:
     tag: "v0.6.1"
   imagePullSecrets:
     - name: ${docker_secret_name}
+
+cert-manager:
+  enabled: true
+  installCRDs: true
+  global:
+    imagePullSecrets:
+      - name: ${docker_secret_name}
+  image:
+    registry: ${docker_registry}
+    repository: robustintelligencehq/cert-manager-controller
+  webhook:
+    image:
+      registry: ${docker_registry}
+      repository: robustintelligencehq/cert-manager-webhook
+  cainjector:
+    image:
+      registry: ${docker_registry}
+      repository: robustintelligencehq/cert-manager-cainjector
+  startupapicheck:
+    image:
+      registry: ${docker_registry}
+      repository: robustintelligencehq/cert-manager-ctl
