@@ -117,6 +117,12 @@ variable "rime_docker_image_builder_image" {
   default     = "robustintelligencehq/rime-image-builder"
 }
 
+variable "rime_docker_managed_base_image" {
+  description = "The name of the base Docker image from which managed images are built"
+  type        = string
+  default     = "robustintelligencehq/rime-base-wheel"
+}
+
 # Note: this docker image must be specified as the specific image for a given
 # client's model testing so it does not have a default.
 variable "rime_docker_model_testing_image" {
@@ -225,20 +231,48 @@ variable "node_ssh_key" {
   default     = ""
 }
 
+variable "public_cluster_endpoint" {
+  description = "Whether or not there should be a public cluster endpoint."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
   default     = {}
 }
 
+variable "server_worker_group_instance_types" {
+  description = "Instance types for the server worker group."
+  type        = list(string)
+  default     = ["t2.xlarge"]
+
+  validation {
+    condition     = length(var.server_worker_group_instance_types) >= 1
+    error_message = "Must specify at least one instance type."
+  }
+}
+
 variable "server_worker_group_min_size" {
   description = "Minimum size of the server worker group. Must be >= 1"
   type        = number
-  default     = 4
+  default     = 5
 
   validation {
     condition     = var.server_worker_group_min_size >= 1
     error_message = "Server worker group min size must be greater than or equal to 1."
+  }
+}
+
+variable "server_worker_group_desired_size" {
+  description = "Desired size of the server worker group. Must be >= 0"
+  type        = number
+  default     = 5
+
+  validation {
+    condition     = var.server_worker_group_desired_size >= 0
+    error_message = "Server worker group desired size must be greater than or equal to 0."
   }
 }
 
@@ -252,6 +286,11 @@ variable "model_testing_worker_group_instance_types" {
   description = "Instance types for the model testing worker group."
   type        = list(string)
   default     = ["t2.xlarge", "t3.xlarge", "t3a.xlarge"]
+
+  validation {
+    condition     = length(var.model_testing_worker_group_instance_types) >= 1
+    error_message = "Must specify at least one instance type."
+  }
 }
 
 variable "model_testing_worker_group_min_size" {
@@ -262,6 +301,23 @@ variable "model_testing_worker_group_min_size" {
   validation {
     condition     = var.model_testing_worker_group_min_size >= 0
     error_message = "Model testing worker group min size must be greater than or equal to 0."
+  }
+}
+
+variable "model_testing_worker_group_desired_size" {
+  description = <<EOT
+  Desired size of the model testing worker group.
+  If var.use_managed_node_group is true, must be >= 1; otherwise, must be >= 0.
+  EOT
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.model_testing_worker_group_desired_size >= 0
+    error_message = <<EOT
+    Model testing worker group desired size must be greater than or equal to 0.
+    If var.use_managed_node_group is true, must be >= 1.
+    EOT
   }
 }
 
@@ -380,6 +436,13 @@ variable "use_blob_store" {
   default     = true
 }
 
+
+variable "enable_log_archival" {
+  description = "Whether to archive logs to blob store."
+  type        = bool
+  default     = false
+}
+
 variable "use_file_upload_service" {
   description = "Whether to use file upload service."
   type        = bool
@@ -404,16 +467,11 @@ variable "internal_lbs" {
   default     = false
 }
 
-variable "use_dns" {
-  description = "Whether or not we we should set up DNS for your cluster"
-  type        = bool
-  default     = true
-}
-
 variable "ip_allowlist" {
-  # Note: external client IP's are preserved by load balancer. You may also want to include the external IP for the
-  # cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server using that IP.
-  description = "CIDR's to add to allowlist for all ingresses. If not specified, all IP's are allowed."
+  # Note: external client IP addresses are preserved by load balancer. You may also want to include the external IP
+  # address for the cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server
+  # using that IP address.
+  description = "A set of CIDR routes to add to the allowlist for all ingresses. If not specified, all IP addresses are allowed."
   type        = list(string)
   default     = []
 }
@@ -491,26 +549,47 @@ variable "rmq_metrics_updater_frequency" {
 }
 
 variable "docker_registry" {
-  description = "The name of the docker registry holding all of the chart images"
-  type = string
-  default = "docker.io"
+  description = "The name of the Docker registry that holds the chart images"
+  type        = string
+  default     = "docker.io"
 }
+
 variable "server_worker_groups_overrides" {
-  description = "A dict of overrides for the server worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  description = "A dictionary that specifies overrides for the server worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  type        = any
+  default     = {}
+}
+
+variable "server_node_groups_overrides" {
+  description = <<EOT
+  A dictionary that specifies overrides for the server node group launch templates.
+  See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/modules/node_groups/README.md for valid values.
+  Only applies if using Managed node groups (var.use_managed_node_group = true).
+  EOT
   type        = any
   default     = {}
 }
 
 variable "model_testing_worker_groups_overrides" {
-  description = "A dict of overrides for the model testing worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  description = "A dictionary that specifies overrides for the model testing worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
+  type        = any
+  default     = {}
+}
+
+variable "model_testing_node_groups_overrides" {
+  description = <<EOT
+  A dictionary that specifies overrides for the model testing node group launch templates.
+  See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/modules/node_groups/README.md for valid values.
+  Only applies if using Managed node groups (var.use_managed_node_group = true).
+  EOT
   type        = any
   default     = {}
 }
 
 variable "overwrite_license" {
-  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable will have no effect on first deploy."
-  type = bool
-  default = false
+  description = "Whether to use the license from the configured Secret Store to overwrite the cluster license. This variable is ignored during the first deployment."
+  type        = bool
+  default     = false
 }
 
 variable "create_scheduled_ct" {
@@ -519,3 +598,36 @@ variable "create_scheduled_ct" {
   default     = false
 }
 
+variable "datadog_tag_pod_annotation" {
+  description = "Pod annotation for Datadog tagging. Must be a string in valid JSON format, e.g. {\"tag\": \"val\"}."
+  type        = string
+  default     = ""
+}
+
+variable "rime_override_values_file_path" {
+  description = <<EOT
+  Optional file path to override values file for the rime helm release.
+  Values produced by the terraform module will take precedence over these values.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "enable_external_agent" {
+  description = <<EOT
+  Whether or not to enable external agent access to your cluster. This will spin
+  up an additional load balancer to handle grpc requests.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "use_managed_node_group" {
+  description = <<EOT
+  Whether or not to use Managed node groups instead of Self-managed nodes for the cluster.
+  https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
+  https://docs.aws.amazon.com/eks/latest/userguide/worker.html
+  EOT
+  type        = bool
+  default     = false
+}
