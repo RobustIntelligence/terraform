@@ -3,21 +3,21 @@
 # NOTE TO DEVELOPERS: do NOT put default values here! Please put those values in the chart's values.yaml file
 %{ endif ~}
 rimeAgent:
-  image:
-    name: "${docker_registry}/${image}:${version}"
+  images:
 %{ if length(image_pull_secret_name) > 0 ~}
-  imagePullSecrets:
-    - name: ${image_pull_secret_name}
+    imagePullSecrets:
+      - name: ${image_pull_secret_name}
 %{ endif ~}
+    agentImage:
+      registry: "${docker_registry}"
+      name: "${image}:${version}"
 
 %{ if length(job_manager_server_addr) > 0 ~}
   jobManagerAddr: ${ job_manager_server_addr }
 %{ endif ~}
-  
 %{ if length(grpc_web_server_addr) > 0 ~}
   grpcWebServerAddr: ${ grpc_web_server_addr }
 %{ endif ~}
-
 %{ if length(agent_manager_server_addr) > 0 ~}
   agentManagerAddr: ${ agent_manager_server_addr }
 %{ endif ~}
@@ -31,7 +31,6 @@ rimeAgent:
       annotations: {
         eks.amazonaws.com/role-arn: ${ s3_reader_role_arn }
       }
-
 %{ if length(upload_server_addr) > 0 ~}
     uploadServerAddr: ${ upload_server_addr }
 %{ endif ~}
@@ -44,3 +43,20 @@ rimeAgent:
 
   launcher:
     requestQueueProxyAddr: ${ request_queue_proxy_addr }
+
+  jobMonitor:
+    logArchival:
+      enabled: ${log_archival_config.enable}
+%{if log_archival_config.enable ~}
+      storageBucketName: ${log_archival_config.bucket_name}
+      endpoint: "s3.amazonaws.com"
+      type: "s3"
+    serviceAccount:
+      # Account used by services that need access to blob storage.
+      # This account has special priveleges to read and write to S3 bucket used for blob storage.
+      annotations: {
+        eks.amazonaws.com/role-arn: ${log_archival_config.role_arn}
+      }
+%{ endif ~}
+
+  datadogTagPodAnnotation: '${datadog_tag_pod_annotation}'
