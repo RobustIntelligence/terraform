@@ -12,19 +12,16 @@ terraform {
       version = ">= 2.0.1, < 3.0.0"
     }
 
-    local = {
-      source  = "hashicorp/local"
-      version = "2.0.0"
+    helm = {
+      source = "hashicorp/helm"
+      # Note: Do not use 2.0.0 or 2.0.1 - these versions are buggy.
+      # See: https://github.com/hashicorp/terraform-provider-helm/issues/662
+      version = "> 2.1.0, < 3.0.0"
     }
 
-    null = {
-      source  = "hashicorp/null"
-      version = "3.0.0"
-    }
-
-    random = {
-      source  = "hashicorp/random"
-      version = "3.0.0"
+    time = {
+      source  = "hashicorp/time"
+      version = "0.9.1"
     }
   }
 }
