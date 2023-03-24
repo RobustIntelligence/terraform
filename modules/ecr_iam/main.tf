@@ -16,6 +16,7 @@ data "aws_iam_policy_document" "eks_ecr_repo_management_policy_document" {
       "ecr:CreateRepository",
       "ecr:DeleteRepository",
       "ecr:DescribeImages",
+      "ecr:DescribeRepositories",
       "ecr:PutLifecyclePolicy",
       "ecr:ListImages",
     ]
