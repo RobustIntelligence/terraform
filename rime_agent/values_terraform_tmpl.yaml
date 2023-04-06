@@ -1,0 +1,77 @@
+# Value overrides created by the rime_agent terraform module.
+%{ if false ~}
+# NOTE TO DEVELOPERS: do NOT put default values here! Please put those values in the chart's values.yaml file
+%{ endif ~}
+rimeAgent:
+  images:
+%{ if length(image_pull_secret_name) > 0 ~}
+    imagePullSecrets:
+      - name: ${image_pull_secret_name}
+%{ endif ~}
+    agentImage:
+      registry: "${docker_registry}"
+      name: "${image}:${version}"
+    modelTestJobImage:
+      registry: "${docker_registry}"
+      name: "${default_rime_engine_image}:${version}"
+
+%{ if length(job_manager_server_addr) > 0 ~}
+  jobManagerAddr: ${ job_manager_server_addr }
+%{ endif ~}
+%{ if length(web_server_addr) > 0 ~}
+  grpcWebServerAddr: ${ web_server_addr }
+%{ endif ~}
+%{ if length(agent_manager_server_addr) > 0 ~}
+  agentManagerAddr: ${ agent_manager_server_addr }
+%{ endif ~}
+
+  modelTestJob:
+%{ if length(model_test_job_config_map) > 0 ~}
+    configMapName: ${ model_test_job_config_map }
+%{ endif ~}
+    serviceAccount:
+      name: ${ model_test_job_service_account_name }
+      annotations: {
+        eks.amazonaws.com/role-arn: ${ s3_reader_role_arn }
+      }
+%{ if length(upload_server_rest_addr) > 0 ~}
+%{ if enable_crossplane_tls ~}
+    uploadServerAddr: https://${ upload_server_rest_addr }
+%{ else ~}
+    uploadServerAddr: http://${ upload_server_rest_addr }
+%{ endif ~}
+%{ endif ~}
+%{ if length(firewall_server_rest_addr) > 0 ~}
+%{ if enable_crossplane_tls ~}
+    firewallServerAddr: https://${ firewall_server_rest_addr }
+%{ else ~}
+    firewallServerAddr: http://${ firewall_server_rest_addr }
+%{ endif ~}
+%{ endif ~}
+%{ if length(data_collector_rest_addr) > 0 ~}
+%{ if enable_crossplane_tls ~}
+    dataCollectorAddr: https://${ data_collector_rest_addr }
+%{ else ~}
+    dataCollectorAddr: http://${ data_collector_rest_addr }
+%{ endif ~}
+%{ endif ~}
+%{ if length(dataset_manager_server_rest_addr) > 0 ~}
+%{ if enable_crossplane_tls ~}
+    datasetManagerAddr: https://${ dataset_manager_server_rest_addr }
+%{ else ~}
+    datasetManagerAddr: http://${ dataset_manager_server_rest_addr }
+%{ endif ~}
+%{ endif ~}
+
+  launcher:
+    requestQueueProxyAddr: ${ request_queue_proxy_addr }
+
+  datadogTagPodAnnotation: '${datadog_tag_pod_annotation}'
+
+tls:
+%{ if enable_cert_manager ~}
+  crossplaneEnabled: ${enable_crossplane_tls}
+%{ else ~}
+  crossplaneEnabled: false
+%{ endif ~}
+  enableCertManager: ${enable_cert_manager}
