@@ -1,0 +1,12 @@
+formatter: "markdown" # this is required
+
+output:
+  file: "README.md"
+  mode: inject
+
+sort:
+  enabled: true
+  by: name
+
+settings:
+  lockfile: false
