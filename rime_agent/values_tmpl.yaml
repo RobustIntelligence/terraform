@@ -28,12 +28,12 @@ rimeAgent:
     agentManagerAddress: "${ agent_manager_server_addr }"
 %{ if enable_crossplane_tls ~}
     uploadServerRestAddress: https://${ upload_server_rest_addr }
-    firewallServerAddress: https://${ firewall_server_rest_addr }
+    firewallServerRestAddress: https://${ firewall_server_rest_addr }
     dataCollectorRestAddress: https://${ data_collector_rest_addr }
     datasetManagerRestAddress: https://${ dataset_manager_server_rest_addr }
 %{ else ~}
     uploadServerRestAddress: http://${ upload_server_rest_addr }
-    firewallServerAddress: http://${ firewall_server_rest_addr }
+    firewallServerRestAddress: http://${ firewall_server_rest_addr }
     dataCollectorRestAddress: http://${ data_collector_rest_addr }
     datasetManagerRestAddress: http://${ dataset_manager_server_rest_addr }
 %{ endif ~}
