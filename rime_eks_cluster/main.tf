@@ -15,6 +15,10 @@ locals {
       max_capacity     = var.server_worker_group_max_size
       disk_encrypted   = true
 
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 1
+
       # Autoscaling applies automatically (no need for explicit tag)
       # https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
     }, var.server_node_groups_overrides),
@@ -32,6 +36,10 @@ locals {
       desired_capacity = var.model_testing_worker_group_desired_size
       max_capacity     = var.model_testing_worker_group_max_size
       disk_encrypted   = true
+
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 1
 
       kubelet_extra_args = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
 
@@ -64,6 +72,9 @@ locals {
       root_encrypted                           = true
       on_demand_base_capacity                  = "100"
       on_demand_percentage_above_base_capacity = "100"
+      metadata_http_endpoint                   = "enabled"
+      metadata_http_tokens                     = "required"
+      metadata_http_put_response_hop_limit     = 1
       tags = [
         {
           key                 = "k8s.io/cluster-autoscaler/enabled"
@@ -91,7 +102,9 @@ locals {
       on_demand_percentage_above_base_capacity = var.model_testing_worker_group_use_spot ? "0" : "100"
       spot_allocation_strategy                 = "lowest-price"
       kubelet_extra_args                       = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
-
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 1
       tags = [
         {
           key                 = "k8s.io/cluster-autoscaler/enabled"
