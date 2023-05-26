@@ -7,8 +7,6 @@ rimeAgent:
 %{ if length(datadog_tag_pod_annotation) > 0 ~}
   commonAnnotations:
     ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
-  commonLabels:
-    tags.datadoghq.com/service: '${datadog_tag_pod_annotation}'
 %{ endif ~}
 
   images:
