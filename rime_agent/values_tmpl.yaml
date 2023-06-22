@@ -7,8 +7,6 @@ rimeAgent:
 %{ if length(datadog_tag_pod_annotation) > 0 ~}
   commonAnnotations:
     ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
-  commonLabels:
-    tags.datadoghq.com/service: '${datadog_tag_pod_annotation}'
 %{ endif ~}
 
   images:
@@ -37,6 +35,13 @@ rimeAgent:
     dataCollectorRestAddress: http://${ data_collector_rest_addr }
     datasetManagerRestAddress: http://${ dataset_manager_server_rest_addr }
 %{ endif ~}
+
+  rimeCrossPlaneServer:
+    serviceAccount:
+      name: ${ cross_plane_server_service_account_name }
+      annotations: {
+        eks.amazonaws.com/role-arn: ${ s3_reader_role_arn }
+      }
 
   operator:
     logArchival:
