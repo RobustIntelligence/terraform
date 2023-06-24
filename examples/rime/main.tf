@@ -79,7 +79,7 @@ locals {
   # Specify a secret string value (by default, comes from AWS Secrets Manager)
   secrets = jsondecode(data.aws_secretsmanager_secret_version.rime-secrets.secret_string)
 
-  tags    = { ManagedBy = "Terraform" }
+  tags = { ManagedBy = "Terraform" }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -131,8 +131,8 @@ module "rime_agent_release" {
     "${module.rime_helm_release.blob_store_bucket_arn}/*"
   ]
 
-  cp_release_name = "rime-${local.namespace}"
-  cp_namespace    = local.namespace
+  cp_release_name  = "rime-${local.namespace}"
+  cp_namespace     = local.namespace
   manage_namespace = false
 
   docker_credentials = lookup(local.secrets, "docker-logins", [])
@@ -149,7 +149,7 @@ module "rime_agent_release" {
 
 # If using route53 for DNS, you will need to use this module to create the relevant certificate(s) in ACM.
 module "rime_acm_certs" {
-  source    = "github.com/RobustIntelligence/terraform//rime_acm_certs?ref=2.0.0"
+  source                    = "github.com/RobustIntelligence/terraform//rime_acm_certs?ref=2.0.0"
   registered_domain_zone_id = data.aws_route53_zone.registered_domain_hosted_zone.zone_id
   domain                    = ""
 }

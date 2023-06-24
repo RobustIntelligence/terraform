@@ -72,7 +72,7 @@ locals {
   # Specify a secret string value (by default, comes from AWS Secrets Manager)
   secrets = jsondecode(data.aws_secretsmanager_secret_version.rime-secrets.secret_string)
 
-  tags    = { ManagedBy = "Terraform" }
+  tags = { ManagedBy = "Terraform" }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -88,7 +88,7 @@ module "rime_eks_cluster" {
   private_subnet_ids = []
   public_subnet_ids  = []
 
-  model_testing_worker_group_instance_types = [ "m4.4xlarge" ]
+  model_testing_worker_group_instance_types = ["m4.4xlarge"]
   model_testing_worker_group_min_size       = 0
   model_testing_worker_group_desired_size   = 1
   model_testing_worker_group_max_size       = 10
@@ -117,7 +117,7 @@ module "rime_kube_system_helm_release" {
   enable_cert_manager        = true
 
   install_external_dns = true
-  domains              = [ "" ]
+  domains              = [""]
 
   rime_version                = local.rime_version
   cluster_name                = local.cluster_name
@@ -132,7 +132,7 @@ module "rime_kube_system_helm_release" {
 
 module "rime_extras_helm_release" {
   source     = "github.com/RobustIntelligence/terraform//rime_extras_helm_release?ref=2.0.0"
-  depends_on = [ module.rime_eks_cluster ]
+  depends_on = [module.rime_eks_cluster]
 
   install_velero         = true
   velero_backup_schedule = "0 6 * * * "
