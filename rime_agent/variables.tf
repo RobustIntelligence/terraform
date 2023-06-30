@@ -3,10 +3,9 @@ variable "namespace" {
   type        = string
 }
 
-variable "custom_values_file_path" {
+variable "override_values_file_path" {
   description = <<EOT
-  Optional file path to custom values file for the rime-agent helm release.
-  Values produced by the terraform module will take precedence over these values.
+  Optional file path to override values file for the rime-agent helm release.
   EOT
   type        = string
   default     = ""
