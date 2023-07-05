@@ -88,6 +88,32 @@ data "aws_iam_policy_document" "s3_blob_store_access_policy_document" {
     ]
   }
 
+  statement {
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+      "kms:CreateGrant",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "ec2:GetEbsDefaultKmsKeyId",
+      "ec2:AttachVolume",
+      "ec2:CreateVolume",
+      "ec2:DetachVolume",
+      "ec2:DescribeVolumes",
+      "ec2:CreateSnapshot",
+      "ec2:DescribeSnapshots",
+    ]
+
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_policy" "s3_blob_store_access_policy" {

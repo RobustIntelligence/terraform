@@ -2,6 +2,39 @@ locals {
   output_dir = length(var.helm_values_output_dir) == 0 ? path.cwd : var.helm_values_output_dir
 }
 
+// Create namespace "rime-extras" if we are managing the helm release
+resource "kubernetes_namespace" "rime_extras" {
+  count = var.manage_namespace ? 1 : 0
+  metadata {
+    name = "rime-extras"
+    labels = {
+      name = "rime-extras"
+    }
+  }
+}
+
+// Create secret "rimecreds" in namespace "rime-extras" if we are managing the helm release
+resource "kubernetes_secret" "docker-secrets" {
+  count = var.manage_namespace ? 1 : 0
+  metadata {
+    name      = var.docker_secret_name
+    namespace = "rime-extras"
+  }
+  data = {
+    ".dockerconfigjson" = jsonencode({
+      auths = {
+        for creds in var.docker_credentials :
+        creds["docker-server"] => merge(
+          { for k, v in creds : k => v if v != null },
+          { auth = base64encode("${creds["docker-username"]}:${creds["docker-password"]}") },
+        )
+      }
+    })
+  }
+  type       = "kubernetes.io/dockerconfigjson"
+  depends_on = [kubernetes_namespace.rime_extras]
+}
+
 # The YAML file created by instantiating `values_tmpl.yaml`.
 resource "local_file" "rime_extras" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
@@ -39,43 +72,11 @@ resource "helm_release" "rime_extras" {
   wait              = false
 
   values = [
-    local_file.rime_extras.content
+    local_file.rime_extras.content,
+    length(var.override_values_file_path) > 0 ? file(var.override_values_file_path) : "",
   ]
 
   depends_on = [
     kubernetes_namespace.rime_extras
   ]
-}
-
-// Create namespace "rime-extras" if we are managing the helm release
-resource "kubernetes_namespace" "rime_extras" {
-  count = var.manage_namespace ? 1 : 0
-  metadata {
-    name = "rime-extras"
-    labels = {
-      name = "rime-extras"
-    }
-  }
-}
-
-// Create secret "rimecreds" in each namespace if we are managing the helm release
-resource "kubernetes_secret" "docker-secrets" {
-  count = var.manage_namespace ? 1 : 0
-  metadata {
-    name      = var.docker_secret_name
-    namespace = "rime-extras"
-  }
-  data = {
-    ".dockerconfigjson" = jsonencode({
-      auths = {
-        for creds in var.docker_credentials :
-        creds["docker-server"] => merge(
-          { for k, v in creds : k => v if v != null },
-          { auth = base64encode("${creds["docker-username"]}:${creds["docker-password"]}") },
-        )
-      }
-    })
-  }
-  type       = "kubernetes.io/dockerconfigjson"
-  depends_on = [kubernetes_namespace.rime_extras]
 }
