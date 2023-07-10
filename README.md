@@ -41,12 +41,14 @@ Detailed READMEs for each submodule are in the subfolders.
 We provide standard usage patterns in the `examples/` directory of this repository.
 
 ### Pattern 1: Application only
-In one module, deploy Robust Intelligence into a dedicated namespace of an existing Kubernetes cluster. Note that this requires you to provide your own bootstrapped Kubernetes cluster (see [rime_eks_cluster](#rime_eks_cluster) and [rime_kube_system_helm_release](#rime_kube_system_helm_release) below for details).
+In one module, deploy Robust Intelligence into a dedicated namespace of an existing Kubernetes cluster.
+Note that this requires you to provide your own bootstrapped Kubernetes cluster (see [rime_eks_cluster](#rime_eks_cluster) and [rime_kube_system_helm_release](#rime_kube_system_helm_release) below for details).
 
 **A template for this example is available at [`examples/rime`](examples/rime/).**
 
 ### Pattern 2: Cluster + Application
-In one module, deploy a bootstrapped EKS cluster, and in a second module, deploy Robust Intelligence into a dedicated namespace. This usage pattern is fully self-contained --- all Robust Intelligence dependencies can be handled with the provided modules.
+In one module, deploy a bootstrapped EKS cluster, and in a second module, deploy Robust Intelligence into a dedicated namespace.
+This usage pattern is fully self-contained --- all Robust Intelligence dependencies can be handled with the provided modules.
 
 **A template for this example is available at [`examples/cluster_and_rime`](examples/cluster_and_rime/).**
 
