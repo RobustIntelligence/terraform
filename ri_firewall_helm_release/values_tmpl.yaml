@@ -1,0 +1,27 @@
+# Value overrides created by the ri_firewall_helm_release Terraform module.
+riFirewall:
+
+  secrets:
+    existingIntegrationSecretsName: ${integration_secrets_name}
+
+  images:
+    fileStorageServerImage:
+      name: "${file_storage_server_image}:${file_storage_server_version}"
+
+  firewallServer:
+    service:
+      annotations: {
+        "external-dns.alpha.kubernetes.io/hostname": "${domain}",
+        "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "${acm_cert_arn}"
+      }
+
+  fileStorageServer:
+    config:
+      storageBucketName: ${blob_store_config.s3_bucket_name}
+      endpoint: "s3.amazonaws.com"
+      type: "s3"
+    serviceAccount:
+      name: ${fs_service_account_name}
+      annotations: {
+        eks.amazonaws.com/role-arn: ${blob_store_config.role_arn}
+      }
