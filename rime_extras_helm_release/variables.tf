@@ -79,6 +79,14 @@ variable "oidc_provider_url" {
   type        = string
 }
 
+variable "override_values_file_path" {
+  description = <<EOT
+  Optional file path to override values file for the rime-extras helm release.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "resource_name_suffix" {
   description = "A suffix to name the IAM policy and role with."
   type        = string

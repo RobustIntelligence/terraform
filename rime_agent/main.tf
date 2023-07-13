@@ -2,9 +2,11 @@ locals {
   tags       = merge({ ManagedBy = "Terraform" }, var.tags)
   output_dir = length(var.helm_values_output_dir) == 0 ? path.cwd : var.helm_values_output_dir
 
+  # Service account names are used in both the helm chart to create the service account and s3_iam module to link S3 access via OIDC.
   # the service account name for a running model test job.
-  # This name is used in both the helm chart to create the service account and s3_iam module to link S3 access via OIDC.
   model_test_job_service_account_name = "rime-agent-model-tester"
+  # the service account name for the cross plane server.
+  cross_plane_server_service_account_name = "rime-agent-cross-plane-server"
 }
 
 // Creates S3 reader roles to be used by model testing jobs
@@ -17,7 +19,10 @@ module "s3_iam" {
   oidc_provider_url              = var.oidc_provider_url
   resource_name_suffix           = "${var.resource_name_suffix}_agent"
   s3_authorized_bucket_path_arns = var.s3_authorized_bucket_path_arns
-  service_account_name           = local.model_test_job_service_account_name
+  service_account_names = [
+    local.model_test_job_service_account_name,
+    local.cross_plane_server_service_account_name,
+  ]
 
   tags = local.tags
 }
@@ -58,22 +63,23 @@ resource "kubernetes_secret" "docker-secrets" {
 
 resource "local_file" "terraform_provided_values" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
-    image                               = var.rime_docker_agent_image
-    version                             = var.rime_version
-    default_rime_engine_image           = var.rime_docker_default_engine_image
-    s3_reader_role_arn                  = module.s3_iam.s3_reader_role_arn
-    docker_registry                     = var.docker_registry
-    image_pull_secret_name              = var.docker_secret_name
-    enable_crossplane_tls               = var.enable_crossplane_tls
-    enable_cert_manager                 = var.enable_cert_manager
-    agent_manager_server_addr           = "${var.cp_release_name}-agent-manager-server.${var.cp_namespace}:5016"
-    upload_server_addr                  = "${var.cp_release_name}-upload-server.${var.cp_namespace}:5000"
-    firewall_server_rest_addr           = "${var.cp_release_name}-firewall-server.${var.cp_namespace}:15002"
-    data_collector_rest_addr            = "${var.cp_release_name}-data-collector-server.${var.cp_namespace}:15015"
-    upload_server_rest_addr             = "${var.cp_release_name}-upload-server.${var.cp_namespace}:15001"
-    dataset_manager_server_rest_addr    = "${var.cp_release_name}-dataset-manager-server.${var.cp_namespace}:15009"
-    model_test_job_service_account_name = local.model_test_job_service_account_name
-    datadog_tag_pod_annotation          = var.datadog_tag_pod_annotation
+    image                                   = var.rime_docker_agent_image
+    version                                 = var.rime_version
+    default_rime_engine_image               = var.rime_docker_default_engine_image
+    s3_reader_role_arn                      = module.s3_iam.s3_reader_role_arn
+    docker_registry                         = var.docker_registry
+    image_pull_secret_name                  = var.docker_secret_name
+    enable_crossplane_tls                   = var.enable_crossplane_tls
+    enable_cert_manager                     = var.enable_cert_manager
+    agent_manager_server_addr               = "${var.cp_release_name}-agent-manager-server.${var.cp_namespace}:5016"
+    upload_server_addr                      = "${var.cp_release_name}-upload-server.${var.cp_namespace}:5000"
+    firewall_server_rest_addr               = "${var.cp_release_name}-firewall-server.${var.cp_namespace}:15002"
+    data_collector_rest_addr                = "${var.cp_release_name}-data-collector-server.${var.cp_namespace}:15015"
+    upload_server_rest_addr                 = "${var.cp_release_name}-upload-server.${var.cp_namespace}:15001"
+    dataset_manager_server_rest_addr        = "${var.cp_release_name}-dataset-manager-server.${var.cp_namespace}:15009"
+    model_test_job_service_account_name     = local.model_test_job_service_account_name
+    cross_plane_server_service_account_name = local.cross_plane_server_service_account_name
+    datadog_tag_pod_annotation              = var.datadog_tag_pod_annotation
     log_archival_config = {
       enable      = var.log_archival_config.enable
       bucket_name = var.log_archival_config.bucket_name
@@ -103,7 +109,7 @@ resource "helm_release" "rime_agent" {
   atomic            = true
 
   values = [
-    length(var.custom_values_file_path) > 0 ? file(var.custom_values_file_path) : "",
     local_file.terraform_provided_values.content,
+    length(var.override_values_file_path) > 0 ? file(var.override_values_file_path) : "",
   ]
 }
