@@ -38,11 +38,12 @@ module "blob_store" {
 
   count = var.enable_blob_store ? 1 : 0
 
-  namespace            = var.namespace
-  oidc_provider_url    = var.oidc_provider_url
-  resource_name_suffix = var.resource_name_suffix
-  force_destroy        = var.force_destroy
-  tags                 = var.tags
+  namespace             = var.namespace
+  oidc_provider_url     = var.oidc_provider_url
+  resource_name_suffix  = var.resource_name_suffix
+  service_account_names = ["rime-${var.namespace}-dataset-manager-server"]
+  force_destroy         = var.force_destroy
+  tags                  = var.tags
 }
 
 // Create permissions to push and manage images in ECR
@@ -110,6 +111,7 @@ resource "local_file" "helm_values" {
 
     image_registry_config = var.image_registry_config.enable ? module.image_registry[0].image_registry_config : null
 
+    ip_allowlist                 = var.ip_allowlist
     lb_tags                      = length(local.tags) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: \"${local.tags}\"" : ""
     lb_type                      = var.internal_lbs ? "internal" : "internet-facing"
     mongo_db_size                = var.mongo_db_size
@@ -119,7 +121,6 @@ resource "local_file" "helm_values" {
     rime_license                 = var.rime_license
     verbose                      = var.verbose
     version                      = var.rime_version
-    ip_allowlist                 = var.ip_allowlist
     separate_model_testing_group = var.separate_model_testing_group
     release_name                 = var.release_name
     datadog_tag_pod_annotation   = var.datadog_tag_pod_annotation

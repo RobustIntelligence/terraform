@@ -1,8 +1,3 @@
-variable "cluster_name" {
-  description = "Name of the cluster that the autoscaler is being installed into."
-  type        = string
-}
-
 variable "create_managed_helm_release" {
   description = <<EOT
   Whether to deploy a RIME Helm chart onto the provisioned infrastructure managed by Terraform.
@@ -40,11 +35,6 @@ variable "docker_secret_name" {
   default     = "rimecreds"
 }
 
-variable "domains" {
-  description = "The domain to use for all exposed rime services."
-  type        = list(string)
-}
-
 variable "helm_values_output_dir" {
   description = <<EOT
   The directory where to write the generated values YAML file used to configure the Helm release.
@@ -53,30 +43,6 @@ variable "helm_values_output_dir" {
   EOT
   type        = string
   default     = ""
-}
-
-variable "install_cluster_autoscaler" {
-  description = "Whether or not to install the cluster autoscaler. If not installed, we expect there to be enough compute to run stress tests without autoscaling."
-  type        = bool
-  default     = false
-}
-
-variable "install_external_dns" {
-  description = "Whether or not to install external dns. If not installed we expect some way to provision dns records on your cloud provider."
-  type        = bool
-  default     = false
-}
-
-variable "install_lb_controller" {
-  description = "Whether or not to install the aws lb controller. If you do not install the lb controller or already have it present in your cluster, you will have to manually configure ALBs for ingress."
-  type        = bool
-  default     = true
-}
-
-variable "install_metrics_server" {
-  description = "Whether or not to install the metrics server. If you do not install the metrics server, you will not be able to use autoscaling"
-  type        = bool
-  default     = true
 }
 
 variable "manage_namespace" {
@@ -90,22 +56,12 @@ variable "manage_namespace" {
   default     = true
 }
 
-variable "oidc_provider_url" {
-  description = "URL to the OIDC provider for IAM assumable roles used by K8s."
-  type        = string
-}
-
 variable "override_values_file_path" {
   description = <<EOT
   Optional file path to override values file for the rime helm release.
   EOT
   type        = string
   default     = ""
-}
-
-variable "resource_name_suffix" {
-  description = "A suffix to name the IAM policy and role with."
-  type        = string
 }
 
 variable "rime_helm_repository" {
@@ -116,11 +72,6 @@ variable "rime_helm_repository" {
 variable "rime_version" {
   description = "The version of the RIME software to be installed."
   type        = string
-}
-
-variable "tags" {
-  description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
-  type        = map(string)
 }
 
 variable "enable_cert_manager" {
