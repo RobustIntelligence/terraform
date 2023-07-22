@@ -1,0 +1,148 @@
+rimeExtras:
+  datadog: ${install_datadog}
+  velero: ${install_velero}
+
+datadog:
+  targetSystem: "linux"
+
+  # registry -- Registry to use for all Agent images (default gcr.io)
+  registry: "${docker_registry}"
+
+  datadog:
+    # We do not deploy the kube-state-metrics deployment by default. These metrics are redundant and unused.
+    # The metrics controlled by this value show up as `kube_pod_info` or similar. Not the same as the native
+    # kubernetes.* metrics.
+    # See https://github.com/DataDog/helm-charts/blob/c75a5effa46d934f5f9952d2bf658823e9170135/charts/datadog/values.yaml#L122
+    kubeStateMetricsEnabled: false
+
+    # Whether to autodiscover and scrape pods with Prometheus annotations.
+    # The container name restriction restricts prometheus metrics scraping to only our custom containers. The names
+    # of these containers are controlled by the agent and control plane helm charts.
+    prometheusScrape:
+      enabled: true
+      additionalConfigs:
+        -
+          autodiscovery:
+            kubernetes_container_names: # Will be made more flexible and standardized in RIME-10996
+              - rime
+              - rime-agent
+
+    # see https://docs.datadoghq.com/agent/guide/auto_conf/
+    ignoreAutoConfig:
+      - kubernetes_state
+      - redisdb
+
+    apiKey: "${datadog_api_key}"
+    # datadog.tags -- List of static tags to attach to every metric, event and service check collected by this Agent.
+    ## Learn more about tagging: https://docs.datadoghq.com/tagging/
+    tags:
+      - "user:${datadog_user_tag}"
+      - "rime-version:${datadog_rime_version_tag}"
+
+    ## Enable logs agent and provide custom configs
+    logs:
+      enabled: true
+      containerCollectAll: true
+
+      # datadog.logs.containerCollectUsingFiles -- Collect logs from files in /var/log/pods instead of using container runtime API
+      ## It's usually the most efficient way of collecting logs.
+      ## ref: https://docs.datadoghq.com/agent/basic_agent_usage/kubernetes/#log-collection-setup
+      containerCollectUsingFiles: true
+
+    env:
+      # log rules
+      # NOTE: regex in the log rules require an extra escape character for any escape character used, e.g. \\b for \b in normal regex
+      - name: DD_LOGS_CONFIG_PROCESSING_RULES
+        value: >-
+          [{
+            "type": "mask_sequences",
+            "name": "mask_ip",
+            "replace_placeholder": "[masked_ip]",
+            "pattern" : "(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"
+           },
+           {
+            "type": "mask_sequences",
+            "name": "mask_email",
+            "replace_placeholder": "[masked_email]",
+            "pattern" : "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,4}"
+           }]
+  agents:
+    tolerations:
+    # toleration for allowing Datadog Agent to run on the dedicated node for test jobs
+    - key: "dedicated"
+      operator: "Equal"
+      value: "model-testing"
+      effect: "NoSchedule"
+    image:
+      repository: "robustintelligencehq/datadog-agent"
+      pullSecrets:
+        - name: ${docker_secret_name}
+      tag: 7.32.3
+  clusterAgent:
+    image:
+      repository: "robustintelligencehq/datadog-cluster-agent"
+      pullSecrets:
+        - name: ${docker_secret_name}
+      tag: 1.14.0
+
+velero:
+  image:
+    repository: "${docker_registry}/robustintelligencehq/velero"
+    # explicitly state Velero version used with this helm chart
+    tag: "v1.6.3"
+    imagePullSecrets:
+      - ${docker_secret_name}
+  initContainers:
+    - name: velero-plugin-for-aws
+      image: "${docker_registry}/robustintelligencehq/velero-plugin-for-aws:v1.2.1"
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - mountPath: /target
+          name: plugins
+  configuration:
+    # Cloud provider being used (e.g. aws, azure, gcp).
+    provider: aws
+  
+    # Parameters for the `default` BackupStorageLocation. See
+    # https://velero.io/docs/v1.6/api-types/backupstoragelocation/
+    backupStorageLocation:
+      # bucket is the name of the bucket to store backups in. Required.
+      bucket: "${velero_s3_bucket_name}"
+      # Additional provider-specific configuration. See link above
+      # for details of required/optional fields for your provider.
+      config:
+        region: "${velero_s3_region}"
+        serverSideEncryption: AES256
+
+    volumeSnapshotLocation:
+      # name is the name of the volume snapshot location where snapshots are being taken. Required.
+      name: mongodb-snapshots
+      # Additional provider-specific configuration. See link above
+      # for details of required/optional fields for your provider.
+      config:
+        region: "${velero_s3_region}"
+
+    logFormat: json
+
+  serviceAccount:
+   server:
+     create: true
+     annotations:
+       eks.amazonaws.com/role-arn: "${velero_s3_role_arn}"
+
+  credentials:
+    useSecret: false
+
+  schedules:
+    mongodb-backup:
+      disabled: false
+      schedule: "${velero_backup_schedule}"
+      useOwnerReferencesInBackup: false
+      template:
+        ttl: "${velero_backup_ttl}"
+        includedResources:
+          - pvc
+          - pv
+        includedNamespaces:
+         ${velero_backup_namespaces}
+        
