@@ -1,0 +1,25 @@
+rimeExtras:
+  datadog: ${install_datadog}
+  velero: false
+
+%{ if install_datadog ~}
+datadog:
+  registry: "${docker_registry}"
+  datadog:
+    apiKey: "${datadog_api_key}"
+    tags:
+      - "user:${datadog_user_tag}"
+      - "rime-version:${datadog_rime_version_tag}"
+  agents:
+    image:
+      repository: "robustintelligencehq/datadog-agent"
+      pullSecrets:
+        - name: ${docker_secret_name}
+      tag: 7.46.0
+  clusterAgent:
+    image:
+      repository: "robustintelligencehq/datadog-cluster-agent"
+      pullSecrets:
+        - name: ${docker_secret_name}
+      tag: 7.46.0
+%{ endif ~}
