@@ -13,6 +13,7 @@ variable "create_managed_helm_release" {
 variable "datadog_api_key" {
   description = "API key for the Datadog server that will be used by the Datadog Agent."
   type        = string
+  default     = ""
   sensitive   = true
 }
 
@@ -77,6 +78,14 @@ variable "manage_namespace" {
 variable "oidc_provider_url" {
   description = "URL to the OIDC provider for IAM assumable roles used by K8s."
   type        = string
+}
+
+variable "override_values_file_path" {
+  description = <<EOT
+  Optional file path to override values file for the rime-extras helm release.
+  EOT
+  type        = string
+  default     = ""
 }
 
 variable "resource_name_suffix" {
