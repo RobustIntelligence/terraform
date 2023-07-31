@@ -1,0 +1,80 @@
+# Value overrides created by the rime_agent terraform module.
+%{ if false ~}
+# NOTE TO DEVELOPERS: do NOT put default values here! Please put those values in the chart's values.yaml file
+%{ endif ~}
+rimeAgent:
+  isInternal: true
+%{ if length(datadog_tag_pod_annotation) > 0 ~}
+  commonAnnotations:
+    ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
+%{ endif ~}
+
+  images:
+%{ if length(image_pull_secret_name) > 0 ~}
+    imagePullSecrets:
+      - name: ${image_pull_secret_name}
+%{ endif ~}
+    agentImage:
+      registry: "${docker_registry}"
+      name: "${image}:${version}"
+    modelTestJobImage:
+      registry: "${docker_registry}"
+      name: "${default_rime_engine_image}:${version}"
+
+  connections:
+    uploadServerAddress: "${ upload_server_addr }"
+    agentManagerAddress: "${ agent_manager_server_addr }"
+%{ if enable_crossplane_tls ~}
+    uploadServerRestAddress: https://${ upload_server_rest_addr }
+    firewallServerRestAddress: https://${ firewall_server_rest_addr }
+    dataCollectorRestAddress: https://${ data_collector_rest_addr }
+    datasetManagerRestAddress: https://${ dataset_manager_server_rest_addr }
+%{ else ~}
+    uploadServerRestAddress: http://${ upload_server_rest_addr }
+    firewallServerRestAddress: http://${ firewall_server_rest_addr }
+    dataCollectorRestAddress: http://${ data_collector_rest_addr }
+    datasetManagerRestAddress: http://${ dataset_manager_server_rest_addr }
+%{ endif ~}
+
+  rimeCrossPlaneServer:
+    deployment:
+      labels:
+        azure.workload.identity/use: "true"
+    serviceAccount:
+      name: ${ cross_plane_server_service_account_name }
+      labels:
+        azure.workload.identity/use: "true"
+      annotations: {
+        azure.workload.identity/client-id: "${ azure_blob_reader_client_id }",
+        azure.workload.identity/tenant-id: "${ azure_blob_reader_tenant_id }"
+      }
+
+  operator:
+    modelTestJob:
+      labels:
+        azure.workload.identity/use: "true"
+      serviceAccount:
+        name: ${ model_test_job_service_account_name }
+        labels:
+          azure.workload.identity/use: "true"
+        annotations: {
+          azure.workload.identity/client-id: "${ azure_blob_reader_client_id }",
+          azure.workload.identity/tenant-id: "${ azure_blob_reader_tenant_id }"
+        }
+%{ if separate_model_testing_group ~}
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "model-testing"
+          effect: "NoSchedule"
+      nodeSelector:
+        dedicated: model-testing
+%{ endif ~}
+
+tls:
+%{ if enable_cert_manager ~}
+  crossplaneEnabled: ${enable_crossplane_tls}
+%{ else ~}
+  crossplaneEnabled: false
+%{ endif ~}
+  enableCertManager: ${enable_cert_manager}
