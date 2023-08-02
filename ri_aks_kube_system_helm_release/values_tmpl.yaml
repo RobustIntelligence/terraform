@@ -1,0 +1,21 @@
+cert-manager:
+  enabled: ${enable_cert_manager}
+  installCRDs: true
+  global:
+    imagePullSecrets:
+      - name: ${docker_secret_name}
+  image:
+    registry: ${docker_registry}
+    repository: robustintelligencehq/cert-manager-controller
+  webhook:
+    image:
+      registry: ${docker_registry}
+      repository: robustintelligencehq/cert-manager-webhook
+  cainjector:
+    image:
+      registry: ${docker_registry}
+      repository: robustintelligencehq/cert-manager-cainjector
+  startupapicheck:
+    image:
+      registry: ${docker_registry}
+      repository: robustintelligencehq/cert-manager-ctl
