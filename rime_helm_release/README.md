@@ -67,7 +67,7 @@
 | <a name="input_mongo_db_size"></a> [mongo\_db\_size](#input\_mongo\_db\_size) | MongoDb volume size | `string` | `"32Gi"` | no |
 | <a name="input_namespace"></a> [namespace](#input\_namespace) | Namespace where the RIME Helm chart is to be installed. | `string` | n/a | yes |
 | <a name="input_oidc_provider_url"></a> [oidc\_provider\_url](#input\_oidc\_provider\_url) | URL to the OIDC provider for IAM assumable roles used by K8s. | `string` | n/a | yes |
-| <a name="input_override_values_file_path"></a> [override\_values\_file\_path](#input\_override\_values\_file\_path) | Optional file path to override values file for the rime helm release.<br>  Values produced by the terraform module will take precedence over these values. | `string` | `""` | no |
+| <a name="input_override_values_file_path"></a> [override\_values\_file\_path](#input\_override\_values\_file\_path) | Optional file path to override values file for the rime helm release. | `string` | `""` | no |
 | <a name="input_release_name"></a> [release\_name](#input\_release\_name) | helm release name | `string` | `"rime"` | no |
 | <a name="input_resource_name_suffix"></a> [resource\_name\_suffix](#input\_resource\_name\_suffix) | A suffix to name the IAM policy and role with. | `string` | n/a | yes |
 | <a name="input_rime_license"></a> [rime\_license](#input\_rime\_license) | Json Web Token containing Robust Intelligence license information. | `string` | n/a | yes |
