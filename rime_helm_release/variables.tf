@@ -325,7 +325,6 @@ variable "cloud_platform_config" {
 variable "override_values_file_path" {
   description = <<EOT
   Optional file path to override values file for the rime helm release.
-  Values produced by the terraform module will take precedence over these values.
   EOT
   type        = string
   default     = ""
