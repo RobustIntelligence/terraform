@@ -4,7 +4,7 @@
 # Pattern 2: Cluster + Application (Cluster)
 # This main.tf deploys a bootstrapped EKS cluster for use with the Robust Intelligence application.
 #
-# Version 2.0.0
+# Version 2.1
 # ----------------------------------------------------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ data "aws_secretsmanager_secret_version" "rime-secrets" {
 
 locals {
   # The version of Robust Intelligence that you are deploying
-  rime_version = "2.0.0"
+  rime_version = "2.1.X"
 
   # Generally used as a suffix for various Terraform resources
   infra_name = "acme"
@@ -72,14 +72,14 @@ locals {
   # Specify a secret string value (by default, comes from AWS Secrets Manager)
   secrets = jsondecode(data.aws_secretsmanager_secret_version.rime-secrets.secret_string)
 
-  tags    = { ManagedBy = "Terraform" }
+  tags = { ManagedBy = "Terraform" }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
 # SUBMODULES
 # ----------------------------------------------------------------------------------------------------------------------
 module "rime_eks_cluster" {
-  source = "github.com/RobustIntelligence/terraform//rime_eks_cluster?ref=2.0.0"
+  source = "github.com/RobustIntelligence/terraform//rime_eks_cluster?ref=2.1.X"
 
   cluster_name    = local.cluster_name
   cluster_version = "1.23"
@@ -88,7 +88,7 @@ module "rime_eks_cluster" {
   private_subnet_ids = []
   public_subnet_ids  = []
 
-  model_testing_worker_group_instance_types = [ "m4.4xlarge" ]
+  model_testing_worker_group_instance_types = ["m4.4xlarge"]
   model_testing_worker_group_min_size       = 0
   model_testing_worker_group_desired_size   = 1
   model_testing_worker_group_max_size       = 10
@@ -109,7 +109,7 @@ module "rime_eks_cluster" {
 }
 
 module "rime_kube_system_helm_release" {
-  source = "github.com/RobustIntelligence/terraform//rime_kube_system_helm_release?ref=2.0.0"
+  source = "github.com/RobustIntelligence/terraform//rime_kube_system_helm_release?ref=2.1.X"
 
   install_cluster_autoscaler = true
   install_metrics_server     = true
@@ -117,7 +117,7 @@ module "rime_kube_system_helm_release" {
   enable_cert_manager        = true
 
   install_external_dns = true
-  domains              = [ "" ]
+  domains              = [""]
 
   rime_version                = local.rime_version
   cluster_name                = local.cluster_name
@@ -131,8 +131,8 @@ module "rime_kube_system_helm_release" {
 }
 
 module "rime_extras_helm_release" {
-  source     = "github.com/RobustIntelligence/terraform//rime_extras_helm_release?ref=2.0.0"
-  depends_on = [ module.rime_eks_cluster ]
+  source     = "github.com/RobustIntelligence/terraform//rime_extras_helm_release?ref=2.1.X"
+  depends_on = [module.rime_eks_cluster]
 
   install_velero         = true
   velero_backup_schedule = "0 6 * * * "
