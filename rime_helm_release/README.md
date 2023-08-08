@@ -49,7 +49,6 @@
 | <a name="input_docker_registry"></a> [docker\_registry](#input\_docker\_registry) | The name of the Docker registry that holds the chart images | `string` | `"docker.io"` | no |
 | <a name="input_docker_secret_name"></a> [docker\_secret\_name](#input\_docker\_secret\_name) | The name of the Kubernetes secret used to pull the Docker image for RIME's backend services. | `string` | `"rimecreds"` | no |
 | <a name="input_domain"></a> [domain](#input\_domain) | The domain to use for all exposed rime services. | `string` | n/a | yes |
-| <a name="input_enable_api_key_auth"></a> [enable\_api\_key\_auth](#input\_enable\_api\_key\_auth) | Use api keys to authenticate api requests | `bool` | `true` | no |
 | <a name="input_enable_autorotate_tls"></a> [enable\_autorotate\_tls](#input\_enable\_autorotate\_tls) | enable auto rotation for tls | `bool` | `true` | no |
 | <a name="input_enable_blob_store"></a> [enable\_blob\_store](#input\_enable\_blob\_store) | Whether to use blob store for the cluster. | `bool` | `true` | no |
 | <a name="input_enable_cert_manager"></a> [enable\_cert\_manager](#input\_enable\_cert\_manager) | enable deployment of cert-manager | `bool` | `true` | no |
@@ -67,7 +66,7 @@
 | <a name="input_mongo_db_size"></a> [mongo\_db\_size](#input\_mongo\_db\_size) | MongoDb volume size | `string` | `"32Gi"` | no |
 | <a name="input_namespace"></a> [namespace](#input\_namespace) | Namespace where the RIME Helm chart is to be installed. | `string` | n/a | yes |
 | <a name="input_oidc_provider_url"></a> [oidc\_provider\_url](#input\_oidc\_provider\_url) | URL to the OIDC provider for IAM assumable roles used by K8s. | `string` | n/a | yes |
-| <a name="input_override_values_file_path"></a> [override\_values\_file\_path](#input\_override\_values\_file\_path) | Optional file path to override values file for the rime helm release.<br>  Values produced by the terraform module will take precedence over these values. | `string` | `""` | no |
+| <a name="input_override_values_file_path"></a> [override\_values\_file\_path](#input\_override\_values\_file\_path) | Optional file path to override values file for the rime helm release. | `string` | `""` | no |
 | <a name="input_release_name"></a> [release\_name](#input\_release\_name) | helm release name | `string` | `"rime"` | no |
 | <a name="input_resource_name_suffix"></a> [resource\_name\_suffix](#input\_resource\_name\_suffix) | A suffix to name the IAM policy and role with. | `string` | n/a | yes |
 | <a name="input_rime_license"></a> [rime\_license](#input\_rime\_license) | Json Web Token containing Robust Intelligence license information. | `string` | n/a | yes |

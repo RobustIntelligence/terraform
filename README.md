@@ -41,12 +41,14 @@ Detailed READMEs for each submodule are in the subfolders.
 We provide standard usage patterns in the `examples/` directory of this repository.
 
 ### Pattern 1: Application only
-In one module, deploy Robust Intelligence into a dedicated namespace of an existing Kubernetes cluster. Note that this requires you to provide your own bootstrapped Kubernetes cluster (see [rime_eks_cluster](#rime_eks_cluster) and [rime_kube_system_helm_release](#rime_kube_system_helm_release) below for details).
+In one module, deploy Robust Intelligence into a dedicated namespace of an existing Kubernetes cluster.
+Note that this requires you to provide your own bootstrapped Kubernetes cluster (see [rime_eks_cluster](#rime_eks_cluster) and [rime_kube_system_helm_release](#rime_kube_system_helm_release) below for details).
 
 **A template for this example is available at [`examples/rime`](examples/rime/).**
 
 ### Pattern 2: Cluster + Application
-In one module, deploy a bootstrapped EKS cluster, and in a second module, deploy Robust Intelligence into a dedicated namespace. This usage pattern is fully self-contained --- all Robust Intelligence dependencies can be handled with the provided modules.
+In one module, deploy a bootstrapped EKS cluster, and in a second module, deploy Robust Intelligence into a dedicated namespace.
+This usage pattern is fully self-contained --- all Robust Intelligence dependencies can be handled with the provided modules.
 
 **A template for this example is available at [`examples/cluster_and_rime`](examples/cluster_and_rime/).**
 
@@ -94,3 +96,18 @@ Your Robust Intelligence representative will help you determine what configurati
 
 ### `rime_acm_certs` (optional)
 If using route53 for DNS, this module will create and validate an ACM certificate for your domain.
+
+---
+
+## License
+
+Copyright &copy; 2023 Robust Intelligence
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+
+You may obtain a copy of the License at
+
+<http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and limitations under the License.
