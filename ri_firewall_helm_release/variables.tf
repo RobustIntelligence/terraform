@@ -1,8 +1,13 @@
+variable "acm_cert_arn" {
+  description = "ARN for the ACM cert to validate our domain."
+  type        = string
+}
+
 variable "create_managed_helm_release" {
   description = <<EOT
-  Whether to deploy a RIME Helm chart onto the provisioned infrastructure managed by Terraform.
-  Changing the state of this variable will either install/uninstall the RIME deployment
-  once the change is applied in Terraform. If you want to install the RIME package manually,
+  Whether to deploy a RI Firewall Helm chart onto the provisioned infrastructure managed by Terraform.
+  Changing the state of this variable will either install/uninstall the RI Firewall deployment
+  once the change is applied in Terraform. If you want to install the RI Firewall package manually,
   set this to false and use the generated values YAML file to deploy the release
   on the provisioned infrastructure.
   EOT
@@ -10,30 +15,23 @@ variable "create_managed_helm_release" {
   default     = false
 }
 
-variable "datadog_api_key" {
-  description = "API key for the Datadog server that will be used by the Datadog Agent."
+variable "datadog_tag_pod_annotation" {
+  description = "Pod annotation for Datadog tagging. Must be a string in valid JSON format, e.g. {\"tag\": \"val\"}."
   type        = string
   default     = ""
-  sensitive   = true
 }
 
 variable "docker_credentials" {
   description = <<EOT
   Credentials to pass into docker image pull secrets. Has creds for all registries. Must be structured like so:
-  [[{
+  [{
     docker-server= "",
     docker-username="",
     docker-password="",
     docker-email=""
-  }]]
+  }]
   EOT
   type        = list(map(string))
-}
-
-variable "docker_registry" {
-  description = "The name of the Docker registry that holds the chart images"
-  type        = string
-  default     = "docker.io"
 }
 
 variable "docker_secret_name" {
@@ -42,32 +40,10 @@ variable "docker_secret_name" {
   default     = "rimecreds"
 }
 
-variable "helm_values_output_dir" {
-  description = <<EOT
-  The directory where to write the generated values YAML file used to configure the Helm release.
-  A Helm chart "$helm_values_output_dir/rime_kube_system_values.yaml"
-  will be created.
-  EOT
+
+variable "domain" {
+  description = "Domain to use for the Firewall."
   type        = string
-  default     = ""
-}
-
-variable "install_datadog" {
-  description = "Whether or not to install the Datadog Agent."
-  type        = bool
-  default     = false
-}
-
-variable "install_prometheus_node_exporter" {
-  description = "Whether or not to install the Prometheus Node Exporter."
-  type        = bool
-  default     = false
-}
-
-variable "install_velero" {
-  description = "Whether or not to install Velero."
-  type        = bool
-  default     = false
 }
 
 variable "manage_namespace" {
@@ -81,17 +57,50 @@ variable "manage_namespace" {
   default     = true
 }
 
-variable "oidc_provider_url" {
-  description = "URL to the OIDC provider for IAM assumable roles used by K8s."
+variable "namespace" {
+  description = "Namespace where the RI Firewall Helm chart will be installed."
   type        = string
 }
 
 variable "override_values_file_path" {
   description = <<EOT
-  Optional file path to override values file for the rime-extras helm release.
+  Optional file path to override values file for the ri firewall helm release.
+  These values take precendence over values produced by the terraform module.
   EOT
   type        = string
   default     = ""
+}
+
+variable "openai_api_key" {
+  description = "Open AI API key for using tests that rely on OpenAI models."
+  type        = string
+}
+
+variable "ri_firewall_repository" {
+  description = "Repository URL where to locate the requested RI Firewall chart for the given `ri_firewall_version`."
+  type        = string
+}
+
+variable "ri_firewall_version" {
+  description = "The version of the RI Firewall software to be installed."
+  type        = string
+}
+
+variable "release_name" {
+  description = "helm release name"
+  type        = string
+  default     = "ri-firewall"
+}
+
+variable "force_destroy" {
+  description = "Whether or not to force destroy the blob store bucket"
+  type        = bool
+  default     = false
+}
+
+variable "oidc_provider_url" {
+  description = "URL to the OIDC provider for IAM assumable roles used by K8s."
+  type        = string
 }
 
 variable "resource_name_suffix" {
@@ -107,34 +116,19 @@ variable "resource_name_suffix" {
   }
 }
 
-variable "rime_repository" {
-  description = "Repository URL where to locate the requested RIME chart for the give `rime_version`."
-  type        = string
-}
-
-variable "rime_user" {
-  description = "User of the RIME deployment."
-  type        = string
-}
-
-variable "rime_version" {
-  description = "The version of the RIME software to be installed."
-  type        = string
-}
-
 variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
 }
 
-variable "velero_backup_schedule" {
-  description = "Backup schedule time in cron time string format."
+variable "file_storage_server_service_account_name" {
+  description = "Custom service account name for firewall's storage server."
   type        = string
-  default     = "0 2 * * *"
+  default     = "ri-firewall-file-storage-server"
 }
 
-variable "velero_backup_ttl" {
-  description = "A suffix to name the IAM policy and role with."
+variable "firewall_server_service_account_name" {
+  description = "Custom service account name for the firewall server."
   type        = string
-  default     = "336h"
+  default     = "ri-firewall-firewall-server"
 }
