@@ -77,12 +77,6 @@ variable "domain" {
   type        = string
 }
 
-variable "enable_api_key_auth" {
-  description = "Use api keys to authenticate api requests"
-  type        = bool
-  default     = true
-}
-
 variable "disable_vault_tls" {
   description = "disable tls for vault"
   type        = bool
@@ -172,6 +166,12 @@ variable "image_registry_config" {
     )
     error_message = "The repository prefix must be 1 or more lowercase alphanumeric words separated by a '-', '_', or '/' where the first character is a letter."
   }
+}
+
+variable "ingress_class_name" {
+  description = "The name of the ingress class to use for RIME services. If empty, ingress class will be ri-<namespace>"
+  type        = string
+  default     = ""
 }
 
 variable "manage_namespace" {
@@ -325,7 +325,6 @@ variable "cloud_platform_config" {
 variable "override_values_file_path" {
   description = <<EOT
   Optional file path to override values file for the rime helm release.
-  Values produced by the terraform module will take precedence over these values.
   EOT
   type        = string
   default     = ""
