@@ -15,6 +15,10 @@ locals {
       max_capacity     = var.server_worker_group_max_size
       disk_encrypted   = true
 
+
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 2
       # Autoscaling applies automatically (no need for explicit tag)
       # https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
     }, var.server_node_groups_overrides),
@@ -32,6 +36,10 @@ locals {
       desired_capacity = var.model_testing_worker_group_desired_size
       max_capacity     = var.model_testing_worker_group_max_size
       disk_encrypted   = true
+
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 2
 
       kubelet_extra_args = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
 
@@ -64,6 +72,10 @@ locals {
       root_encrypted                           = true
       on_demand_base_capacity                  = "100"
       on_demand_percentage_above_base_capacity = "100"
+      metadata_http_endpoint                   = "enabled"
+      metadata_http_tokens                     = "required"
+      metadata_http_put_response_hop_limit     = 2
+
       tags = [
         {
           key                 = "k8s.io/cluster-autoscaler/enabled"
@@ -91,6 +103,10 @@ locals {
       on_demand_percentage_above_base_capacity = var.model_testing_worker_group_use_spot ? "0" : "100"
       spot_allocation_strategy                 = "lowest-price"
       kubelet_extra_args                       = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
+
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 2
 
       tags = [
         {
@@ -217,14 +233,37 @@ module "iam_assumable_role_with_oidc_for_ebs_controller" {
   provider_url = replace(module.eks.cluster_oidc_issuer_url, "https://", "")
 
   role_policy_arns = [
-    "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
+    aws_iam_policy.kms_ebs_access_policy.arn,
   ]
 
-  number_of_role_policy_arns = 1
+  number_of_role_policy_arns = 2
 
   oidc_fully_qualified_subjects = [
     "system:serviceaccount:kube-system:ebs-csi-controller-sa",
   ]
+
+  tags = var.tags
+}
+
+data "aws_iam_policy_document" "kms_ebs_access_policy_document" {
+  version = "2012-10-17"
+
+  statement {
+    actions = [
+      "kms:RevokeGrant",
+      "kms:CreateGrant",
+      "kms:ListGrants"
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "kms_ebs_access_policy" {
+  name = "rime_kms_ebs_policy_${var.cluster_name}" # must be <= 128
+
+  policy = data.aws_iam_policy_document.kms_ebs_access_policy_document.json
 
   tags = var.tags
 }

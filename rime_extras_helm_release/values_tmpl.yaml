@@ -61,3 +61,5 @@ velero:
         includedResources:
           - pvc
           - pv
+        includedNamespaces:
+          - '*'
