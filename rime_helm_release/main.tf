@@ -38,11 +38,12 @@ module "blob_store" {
 
   count = var.enable_blob_store ? 1 : 0
 
-  namespace            = var.namespace
-  oidc_provider_url    = var.oidc_provider_url
-  resource_name_suffix = var.resource_name_suffix
-  force_destroy        = var.force_destroy
-  tags                 = var.tags
+  namespace             = var.namespace
+  oidc_provider_url     = var.oidc_provider_url
+  resource_name_suffix  = var.resource_name_suffix
+  service_account_names = ["rime-${var.namespace}-dataset-manager-server"]
+  force_destroy         = var.force_destroy
+  tags                  = var.tags
 }
 
 // Create permissions to push and manage images in ECR
@@ -93,23 +94,23 @@ resource "local_file" "helm_values" {
       role_arn       = var.enable_blob_store ? module.blob_store[0].blob_store_role_arn : ""
     }
 
-    docker_image_names    = var.docker_image_names
-    docker_secret_name    = var.docker_secret_name
-    docker_registry       = var.docker_registry
-    domain                = var.domain == "" ? "placeholder" : var.domain
-    enable_api_key_auth   = var.enable_api_key_auth
-    disable_vault_tls     = var.disable_vault_tls
-    enable_mongo_tls      = var.enable_mongo_tls
-    enable_rest_tls       = var.enable_rest_tls
-    enable_grpc_tls       = var.enable_grpc_tls
-    enable_crossplane_tls = var.enable_crossplane_tls
-    enable_cert_manager   = var.enable_cert_manager
-    enable_autorotate_tls = var.enable_autorotate_tls
-    external_vault        = var.external_vault
-    existing_secret_name  = kubernetes_secret.rime-secrets[0].metadata[0].name
-
-    image_registry_config = var.image_registry_config.enable ? module.image_registry[0].image_registry_config : null
-
+    docker_image_names           = var.docker_image_names
+    docker_secret_name           = var.docker_secret_name
+    docker_registry              = var.docker_registry
+    domain                       = var.domain == "" ? "placeholder" : var.domain
+    disable_vault_tls            = var.disable_vault_tls
+    enable_mongo_tls             = var.enable_mongo_tls
+    enable_rest_tls              = var.enable_rest_tls
+    enable_grpc_tls              = var.enable_grpc_tls
+    enable_crossplane_tls        = var.enable_crossplane_tls
+    enable_cert_manager          = var.enable_cert_manager
+    enable_autorotate_tls        = var.enable_autorotate_tls
+    enable_ingress_nginx         = var.enable_ingress_nginx
+    external_vault               = var.external_vault
+    existing_secret_name         = kubernetes_secret.rime-secrets[0].metadata[0].name
+    ingress_class_name           = var.ingress_class_name != "" ? var.ingress_class_name : "ri-${var.namespace}"
+    image_registry_config        = var.image_registry_config.enable ? module.image_registry[0].image_registry_config : null
+    ip_allowlist                 = var.ip_allowlist
     lb_tags                      = length(local.tags) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: \"${local.tags}\"" : ""
     lb_type                      = var.internal_lbs ? "internal" : "internet-facing"
     mongo_db_size                = var.mongo_db_size
@@ -119,7 +120,6 @@ resource "local_file" "helm_values" {
     rime_license                 = var.rime_license
     verbose                      = var.verbose
     version                      = var.rime_version
-    ip_allowlist                 = var.ip_allowlist
     separate_model_testing_group = var.separate_model_testing_group
     release_name                 = var.release_name
     datadog_tag_pod_annotation   = var.datadog_tag_pod_annotation
