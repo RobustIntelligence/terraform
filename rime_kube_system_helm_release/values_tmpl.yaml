@@ -26,6 +26,8 @@ cluster-autoscaler:
   autoDiscovery:
     clusterName: "${cluster_name}"
   awsRegion: "${region}"
+  extraArgs:
+    balance-similar-node-groups: true
   rbac:
     serviceAccount:
       annotations: {
