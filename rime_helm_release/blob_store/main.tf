@@ -88,6 +88,32 @@ data "aws_iam_policy_document" "s3_blob_store_access_policy_document" {
     ]
   }
 
+  statement {
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+      "kms:CreateGrant",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "ec2:GetEbsDefaultKmsKeyId",
+      "ec2:AttachVolume",
+      "ec2:CreateVolume",
+      "ec2:DetachVolume",
+      "ec2:DescribeVolumes",
+      "ec2:CreateSnapshot",
+      "ec2:DescribeSnapshots",
+    ]
+
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_policy" "s3_blob_store_access_policy" {
@@ -116,7 +142,7 @@ module "iam_assumable_role_with_oidc_for_s3_blob_store" {
   number_of_role_policy_arns = 1
 
   oidc_fully_qualified_subjects = [
-    "system:serviceaccount:${var.namespace}:rime-${var.namespace}-dataset-manager-server",
+    for service_account_name in var.service_account_names : "system:serviceaccount:${var.namespace}:${service_account_name}"
   ]
 
   tags = var.tags

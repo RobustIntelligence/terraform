@@ -1,6 +1,11 @@
 locals {
   is_namespace_default = (var.namespace == "default")
   tags                 = join(",", [for key, value in var.tags : "${key}=${value}"])
+
+  # Service account names are used in both the helm chart to create the service account and s3_iam module to link S3 access via OIDC.
+  # the service account name for the feature flag server to fetch licences.
+  feature_flag_service_account_name = "rime-${var.namespace}-feature-flag-server"
+
 }
 
 resource "kubernetes_namespace" "namespace" {
@@ -38,11 +43,12 @@ module "blob_store" {
 
   count = var.enable_blob_store ? 1 : 0
 
-  namespace            = var.namespace
-  oidc_provider_url    = var.oidc_provider_url
-  resource_name_suffix = var.resource_name_suffix
-  force_destroy        = var.force_destroy
-  tags                 = var.tags
+  namespace             = var.namespace
+  oidc_provider_url     = var.oidc_provider_url
+  resource_name_suffix  = var.resource_name_suffix
+  service_account_names = ["rime-${var.namespace}-dataset-manager-server"]
+  force_destroy         = var.force_destroy
+  tags                  = var.tags
 }
 
 // Create permissions to push and manage images in ECR
@@ -93,11 +99,11 @@ resource "local_file" "helm_values" {
       role_arn       = var.enable_blob_store ? module.blob_store[0].blob_store_role_arn : ""
     }
 
+    customer_name         = var.customer_name
     docker_image_names    = var.docker_image_names
     docker_secret_name    = var.docker_secret_name
     docker_registry       = var.docker_registry
     domain                = var.domain == "" ? "placeholder" : var.domain
-    enable_api_key_auth   = var.enable_api_key_auth
     disable_vault_tls     = var.disable_vault_tls
     enable_mongo_tls      = var.enable_mongo_tls
     enable_rest_tls       = var.enable_rest_tls
@@ -105,11 +111,17 @@ resource "local_file" "helm_values" {
     enable_crossplane_tls = var.enable_crossplane_tls
     enable_cert_manager   = var.enable_cert_manager
     enable_autorotate_tls = var.enable_autorotate_tls
+    enable_ingress_nginx  = var.enable_ingress_nginx
     external_vault        = var.external_vault
     existing_secret_name  = kubernetes_secret.rime-secrets[0].metadata[0].name
-
-    image_registry_config = var.image_registry_config.enable ? module.image_registry[0].image_registry_config : null
-
+    feature_flag_config = {
+      s3_license_enabled       = var.s3_license_enabled
+      s3_bucket_name           = "rime-customer-licenses"
+      service_account_role_arn = var.s3_license_enabled ? module.feature_flag_s3_iam.s3_reader_role_arn : ""
+    }
+    ingress_class_name           = var.ingress_class_name != "" ? var.ingress_class_name : "ri-${var.namespace}"
+    image_registry_config        = var.image_registry_config.enable ? module.image_registry[0].image_registry_config : null
+    ip_allowlist                 = var.ip_allowlist
     lb_tags                      = length(local.tags) > 0 ? "service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: \"${local.tags}\"" : ""
     lb_type                      = var.internal_lbs ? "internal" : "internet-facing"
     mongo_db_size                = var.mongo_db_size
@@ -119,7 +131,6 @@ resource "local_file" "helm_values" {
     rime_license                 = var.rime_license
     verbose                      = var.verbose
     version                      = var.rime_version
-    ip_allowlist                 = var.ip_allowlist
     separate_model_testing_group = var.separate_model_testing_group
     release_name                 = var.release_name
     datadog_tag_pod_annotation   = var.datadog_tag_pod_annotation
@@ -150,4 +161,22 @@ resource "helm_release" "rime" {
     length(var.override_values_file_path) > 0 ? file(var.override_values_file_path) : "",
   ]
   depends_on = [kubernetes_namespace.namespace]
+}
+
+// Creates S3 reader roles to be used by feature-flag server to fetch the
+// licences from s3 bucket
+module "feature_flag_s3_iam" {
+  source = "../rime_agent/s3_iam"
+
+  namespace            = var.namespace
+  oidc_provider_url    = var.oidc_provider_url
+  resource_name_suffix = "${var.resource_name_suffix}_feature_flag"
+  s3_authorized_bucket_path_arns = [
+    "arn:aws:s3:::rime-customer-licenses/*"
+  ]
+  service_account_names = [
+    local.feature_flag_service_account_name,
+  ]
+
+  tags = var.tags
 }
