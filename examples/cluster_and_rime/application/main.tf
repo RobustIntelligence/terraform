@@ -4,7 +4,7 @@
 # Pattern 2: Cluster + Application (Application)
 # This main.tf deploys the Robust Intelligence application into the bootstrapped EKS cluster made by ../main.tf.
 #
-# Version 2.0.0
+# Version 2.1
 # ----------------------------------------------------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ locals {
   namespace = "default"
 
   # The version of Robust Intelligence that you are deploying
-  rime_version = "2.0.0"
+  rime_version = "2.1.X"
 
   # Generally used as a suffix for various Terraform resources
   infra_name = "acme"
@@ -79,14 +79,14 @@ locals {
   # Specify a secret string value (by default, comes from AWS Secrets Manager)
   secrets = jsondecode(data.aws_secretsmanager_secret_version.rime-secrets.secret_string)
 
-  tags    = { ManagedBy = "Terraform" }
+  tags = { ManagedBy = "Terraform" }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
 # MODULES
 # ----------------------------------------------------------------------------------------------------------------------
 module "rime_helm_release" {
-  source    = "github.com/RobustIntelligence/terraform//rime_helm_release?ref=2.0.0"
+  source    = "github.com/RobustIntelligence/terraform//rime_helm_release?ref=2.1.X"
   namespace = local.namespace
 
   release_name = "rime-${local.infra_name}"
@@ -123,7 +123,7 @@ module "rime_helm_release" {
 }
 
 module "rime_agent_release" {
-  source     = "github.com/RobustIntelligence/terraform//rime_agent?ref=2.0.0"
+  source     = "github.com/RobustIntelligence/terraform//rime_agent?ref=2.1.X"
   depends_on = [module.rime_helm_release]
   namespace  = local.namespace
 
@@ -131,8 +131,8 @@ module "rime_agent_release" {
     "${module.rime_helm_release.blob_store_bucket_arn}/*"
   ]
 
-  cp_release_name = "rime-${local.namespace}"
-  cp_namespace    = local.namespace
+  cp_release_name  = "rime-${local.namespace}"
+  cp_namespace     = local.namespace
   manage_namespace = false
 
   docker_credentials = lookup(local.secrets, "docker-logins", [])
@@ -149,7 +149,7 @@ module "rime_agent_release" {
 
 # If using route53 for DNS, you will need to use this module to create the relevant certificate(s) in ACM.
 module "rime_acm_certs" {
-  source    = "github.com/RobustIntelligence/terraform//rime_acm_certs?ref=2.0.0"
+  source                    = "github.com/RobustIntelligence/terraform//rime_acm_certs?ref=2.1.X"
   registered_domain_zone_id = data.aws_route53_zone.registered_domain_hosted_zone.zone_id
   domain                    = ""
 }

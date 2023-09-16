@@ -20,6 +20,11 @@ variable "create_managed_helm_release" {
   default     = false
 }
 
+variable "customer_name" {
+  description = "The name of the customer that is used in the licence file. This name should be unique for each rime instance since we generate the license based on the name."
+  type        = string
+}
+
 variable "docker_credentials" {
   description = <<EOT
   Credentials to pass into docker image pull secrets. Has creds for all registries. Must be structured like so:
@@ -77,12 +82,6 @@ variable "domain" {
   type        = string
 }
 
-variable "enable_api_key_auth" {
-  description = "Use api keys to authenticate api requests"
-  type        = bool
-  default     = true
-}
-
 variable "disable_vault_tls" {
   description = "disable tls for vault"
   type        = bool
@@ -131,6 +130,12 @@ variable "enable_blob_store" {
   default     = true
 }
 
+variable "enable_ingress_nginx" {
+  description = "Whether or not to install ingress-nginx. Only turn this off if you have some other ingress controller installed."
+  type        = bool
+  default     = true
+}
+
 variable "external_vault" {
   description = "Whether to use external Vault."
   type        = bool
@@ -172,6 +177,12 @@ variable "image_registry_config" {
     )
     error_message = "The repository prefix must be 1 or more lowercase alphanumeric words separated by a '-', '_', or '/' where the first character is a letter."
   }
+}
+
+variable "ingress_class_name" {
+  description = "The name of the ingress class to use for RIME services. If empty, ingress class will be ri-<namespace>"
+  type        = string
+  default     = ""
 }
 
 variable "manage_namespace" {
@@ -228,6 +239,7 @@ variable "verbose" {
 variable "acm_cert_arn" {
   description = "ARN for the acm cert to validate our domain."
   type        = string
+  default     = ""
 }
 
 variable "internal_lbs" {
@@ -325,8 +337,13 @@ variable "cloud_platform_config" {
 variable "override_values_file_path" {
   description = <<EOT
   Optional file path to override values file for the rime helm release.
-  Values produced by the terraform module will take precedence over these values.
   EOT
   type        = string
   default     = ""
+}
+
+variable "s3_license_enabled" {
+  description = "enable feature flag fetching jwt file from s3"
+  type        = bool
+  default     = false
 }

@@ -95,7 +95,7 @@ Note that in this sample template, only `rime_jwt`, `admin_username`, `admin_pas
     - (search "SSO" at https://docs.rime.dev/)
 - `smtp_email`, `smtp_password`, `smtp_server`, and `smtp_port`: SMTP configuration for email notifications
     - (search "Notifications" at https://docs.rime.dev/)
-- `datadog-api-key` and `rime-user`: DataDog API Key (will be provided by your SA) and user tag for log filtering
+- `datadog-api-key`: DataDog API Key (will be provided by your SA)
 
 ```json
 {
@@ -116,8 +116,7 @@ Note that in this sample template, only `rime_jwt`, `admin_username`, `admin_pas
   "smtp_password": "",
   "smtp_server": "",
   "smtp_port": "",
-  "datadog-api-key": "",
-  "rime-user": ""
+  "datadog-api-key": ""
 }
 ```
 
