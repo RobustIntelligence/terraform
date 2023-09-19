@@ -52,7 +52,7 @@ variable "map_users" {
 variable "model_testing_worker_group_instance_types" {
   description = "Instance types for the model testing worker group."
   type        = list(string)
-  default     = ["t2.xlarge", "t3.xlarge", "t3a.xlarge"]
+  default     = ["t3.xlarge", "t2.xlarge"]
 
   validation {
     condition     = length(var.model_testing_worker_group_instance_types) >= 1
@@ -61,7 +61,7 @@ variable "model_testing_worker_group_instance_types" {
 }
 
 variable "model_testing_worker_group_min_size" {
-  description = "Minimum size of the model testing worker group. Must be >= 1"
+  description = "Minimum size of the model testing worker group. Must be >= 0"
   type        = number
   default     = 0
 
@@ -141,7 +141,7 @@ variable "public_subnet_ids" {
 variable "server_worker_group_instance_types" {
   description = "Instance types for the server worker group."
   type        = list(string)
-  default     = ["t2.xlarge"]
+  default     = ["t3.xlarge"]
 
   validation {
     condition     = length(var.server_worker_group_instance_types) >= 1
