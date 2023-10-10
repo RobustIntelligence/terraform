@@ -30,6 +30,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_domain"></a> [domain](#input\_domain) | Domain to create a cert for. This can also be a wildcard cert. Must be a child of the registered domain. | `string` | n/a | yes |
 | <a name="input_registered_domain_zone_id"></a> [registered\_domain\_zone\_id](#input\_registered\_domain\_zone\_id) | Zone ID to place cert validation records. This should be a valid registered route 53 domain if you want it to | `string` | n/a | yes |
+| <a name="input_subject_alternative_names"></a> [subject\_alternative\_names](#input\_subject\_alternative\_names) | (Optional) Set of domains that should be SANs in the issued certificate. | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only. | `map(string)` | `{}` | no |
 
 ## Outputs

@@ -1,3 +1,9 @@
+variable "acm_cert_arn" {
+  description = "ARN for the acm cert to validate domains for your tenant. This is only needed if creating a multi-tenant load balancer."
+  type        = string
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "Name of the cluster that the autoscaler is being installed into."
   type        = string
@@ -41,7 +47,7 @@ variable "docker_secret_name" {
 }
 
 variable "domains" {
-  description = "The domain to use for all exposed rime services."
+  description = "The domains for all rime tenants handled by this cluster"
   type        = list(string)
 }
 
@@ -53,6 +59,12 @@ variable "helm_values_output_dir" {
   EOT
   type        = string
   default     = ""
+}
+
+variable "enable_cert_manager" {
+  description = "Whether or not to install cert-manager. If not installed, we expect you to have some version of cert-manager installed or to not use internal tls. Do not enable for Firewall Deployments"
+  type        = bool
+  default     = true
 }
 
 variable "install_cluster_autoscaler" {
@@ -79,6 +91,18 @@ variable "install_metrics_server" {
   default     = true
 }
 
+variable "install_ingress_nginx" {
+  description = "Whether or not to install ingress-nginx. Only turn this on if you plan to use one load-balancer for multiple tenants."
+  type        = bool
+  default     = false
+}
+
+variable "internal_lbs" {
+  description = "Whether or not to spin up the multi-tenant load balancer as an internal load balancer."
+  type        = bool
+  default     = false
+}
+
 variable "manage_namespace" {
   description = <<EOT
   Whether or not to manage the namespace we are installing into.
@@ -98,7 +122,6 @@ variable "oidc_provider_url" {
 variable "override_values_file_path" {
   description = <<EOT
   Optional file path to override values file for the rime helm release.
-  Values produced by the terraform module will take precedence over these values.
   EOT
   type        = string
   default     = ""
@@ -122,10 +145,4 @@ variable "rime_version" {
 variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
-}
-
-variable "enable_cert_manager" {
-  description = "enable deployment of cert-manager"
-  type        = bool
-  default     = true
 }
