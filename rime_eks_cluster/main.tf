@@ -1,23 +1,33 @@
 data "aws_partition" "current" {}
 
 locals {
-  managed_node_groups_launch_templates = {
-    rime-worker-group = merge({
-      name_prefix = "rime-worker-group"
+  managed_node_worker_group_launch_template_per_subnet = merge({
+    name_prefix = "rime-worker-group"
 
-      # required for most customizations to apply
-      create_launch_template = true
+    # required for most customizations to apply
+    create_launch_template = true
 
-      capacity_type    = "ON_DEMAND"
-      instance_types   = var.server_worker_group_instance_types
-      min_capacity     = var.server_worker_group_min_size
-      desired_capacity = var.server_worker_group_desired_size
-      max_capacity     = var.server_worker_group_max_size
-      disk_encrypted   = true
+    capacity_type    = "ON_DEMAND"
+    instance_types   = var.server_worker_group_instance_types
+    min_capacity     = ceil(var.server_worker_group_min_size / length(var.private_subnet_ids))
+    desired_capacity = ceil(var.server_worker_group_desired_size / length(var.private_subnet_ids))
+    max_capacity     = ceil(var.server_worker_group_max_size / length(var.private_subnet_ids))
+    disk_encrypted   = true
 
-      # Autoscaling applies automatically (no need for explicit tag)
-      # https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
-    }, var.server_node_groups_overrides),
+
+    metadata_http_endpoint               = "enabled"
+    metadata_http_tokens                 = "required"
+    metadata_http_put_response_hop_limit = 2
+    # Autoscaling applies automatically (no need for explicit tag)
+    # https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
+  }, var.server_node_groups_overrides)
+
+  managed_node_worker_group_launch_templates = {
+    for subnet in var.private_subnet_ids :
+    format("rime-worker-group-%s", subnet) => merge(local.managed_node_worker_group_launch_template_per_subnet, { subnets = [subnet] })
+  }
+
+  managed_node_worker_group_model_testing_launch_template = {
     rime-worker-group-model-testing = merge({
       name_prefix = "rime-worker-group-model-testing"
 
@@ -32,6 +42,10 @@ locals {
       desired_capacity = var.model_testing_worker_group_desired_size
       max_capacity     = var.model_testing_worker_group_max_size
       disk_encrypted   = true
+
+      metadata_http_endpoint               = "enabled"
+      metadata_http_tokens                 = "required"
+      metadata_http_put_response_hop_limit = 2
 
       kubelet_extra_args = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
 
@@ -53,64 +67,79 @@ locals {
   }
 
   # cluster autoscaler will take care of changing desired capacity as needed
-  self_managed_groups_launch_templates = [
-    merge({
-      name                                     = "rime-worker-group"
-      instance_type                            = var.server_worker_group_instance_types[0]
-      override_instance_types                  = slice(var.server_worker_group_instance_types, 1, length(var.server_worker_group_instance_types))
-      asg_min_size                             = var.server_worker_group_min_size
-      asg_desired_capacity                     = var.server_worker_group_desired_size
-      asg_max_size                             = var.server_worker_group_max_size
-      root_encrypted                           = true
-      on_demand_base_capacity                  = "100"
-      on_demand_percentage_above_base_capacity = "100"
-      tags = [
-        {
-          key                 = "k8s.io/cluster-autoscaler/enabled"
-          value               = "TRUE",
-          propagate_at_launch = true
-        },
-        {
-          key                 = "k8s.io/cluster-autoscaler/${var.cluster_name}"
-          value               = "owned",
-          propagate_at_launch = true
-        }
-      ]
-    }, var.server_worker_groups_overrides),
-    merge({
-      name                    = "rime-worker-group-model-testing"
-      instance_type           = var.model_testing_worker_group_instance_types[0]
-      override_instance_types = slice(var.model_testing_worker_group_instance_types, 1, length(var.model_testing_worker_group_instance_types))
-      asg_min_size            = var.model_testing_worker_group_min_size
-      asg_desired_capacity    = var.model_testing_worker_group_desired_size
-      asg_max_size            = var.model_testing_worker_group_max_size
-      root_encrypted          = true
-      # Mixed Instance Policy Configurations. May need to tune. Currently we either use all spot or all on-demand.
-      # Mixed Instance Policy docs: https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_MixedInstancesPolicy.html
-      on_demand_base_capacity                  = "0"
-      on_demand_percentage_above_base_capacity = var.model_testing_worker_group_use_spot ? "0" : "100"
-      spot_allocation_strategy                 = "lowest-price"
-      kubelet_extra_args                       = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
+  self_managed_worker_group_launch_template_per_subnet = merge({
+    name                                     = "rime-worker-group"
+    instance_type                            = var.server_worker_group_instance_types[0]
+    override_instance_types                  = slice(var.server_worker_group_instance_types, 1, length(var.server_worker_group_instance_types))
+    asg_min_size                             = ceil(var.server_worker_group_min_size / length(var.private_subnet_ids))
+    asg_desired_capacity                     = ceil(var.server_worker_group_desired_size / length(var.private_subnet_ids))
+    asg_max_size                             = ceil(var.server_worker_group_max_size / length(var.private_subnet_ids))
+    root_encrypted                           = true
+    on_demand_base_capacity                  = "100"
+    on_demand_percentage_above_base_capacity = "100"
+    metadata_http_endpoint                   = "enabled"
+    metadata_http_tokens                     = "required"
+    metadata_http_put_response_hop_limit     = 2
 
-      tags = [
-        {
-          key                 = "k8s.io/cluster-autoscaler/enabled"
-          value               = "TRUE",
-          propagate_at_launch = true
-        },
-        {
-          key                 = "k8s.io/cluster-autoscaler/${var.cluster_name}"
-          value               = "owned",
-          propagate_at_launch = true
-        },
-        {
-          key                 = "k8s.io/cluster-autoscaler/node-template/label/dedicated"
-          value               = "model-testing",
-          propagate_at_launch = true
-        }
-      ]
-    }, var.model_testing_worker_groups_overrides)
+    tags = [
+      {
+        key                 = "k8s.io/cluster-autoscaler/enabled"
+        value               = "TRUE",
+        propagate_at_launch = true
+      },
+      {
+        key                 = "k8s.io/cluster-autoscaler/${var.cluster_name}"
+        value               = "owned",
+        propagate_at_launch = true
+      }
+    ]
+  }, var.server_worker_groups_overrides)
+
+  self_managed_worker_group_launch_templates = [
+    for subnet in var.private_subnet_ids :
+    merge(local.self_managed_worker_group_launch_template_per_subnet, { subnets = [subnet] })
   ]
+
+  self_managed_worker_group_model_testing_launch_template = merge({
+    name                    = "rime-worker-group-model-testing"
+    instance_type           = var.model_testing_worker_group_instance_types[0]
+    override_instance_types = slice(var.model_testing_worker_group_instance_types, 1, length(var.model_testing_worker_group_instance_types))
+    asg_min_size            = var.model_testing_worker_group_min_size
+    asg_desired_capacity    = var.model_testing_worker_group_desired_size
+    asg_max_size            = var.model_testing_worker_group_max_size
+    root_encrypted          = true
+    # Mixed Instance Policy Configurations. May need to tune. Currently we either use all spot or all on-demand.
+    # Mixed Instance Policy docs: https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_MixedInstancesPolicy.html
+    on_demand_base_capacity                  = "0"
+    on_demand_percentage_above_base_capacity = var.model_testing_worker_group_use_spot ? "0" : "100"
+    spot_allocation_strategy                 = "lowest-price"
+    kubelet_extra_args                       = "--node-labels=node.kubernetes.io/lifecycle=${var.model_testing_worker_group_use_spot ? "spot" : "normal"},dedicated=model-testing --register-with-taints=dedicated=model-testing:NoSchedule"
+
+    metadata_http_endpoint               = "enabled"
+    metadata_http_tokens                 = "required"
+    metadata_http_put_response_hop_limit = 2
+
+    tags = [
+      {
+        key                 = "k8s.io/cluster-autoscaler/enabled"
+        value               = "TRUE",
+        propagate_at_launch = true
+      },
+      {
+        key                 = "k8s.io/cluster-autoscaler/${var.cluster_name}"
+        value               = "owned",
+        propagate_at_launch = true
+      },
+      {
+        key                 = "k8s.io/cluster-autoscaler/node-template/label/dedicated"
+        value               = "model-testing",
+        propagate_at_launch = true
+      }
+    ]
+  }, var.model_testing_worker_groups_overrides)
+
+  # Used as a unique identifier for global resources
+  vpc_id_hashed = sha256(var.vpc_id)
 }
 
 # Provisions an EKS cluster for RIME to be deployed onto.
@@ -137,8 +166,15 @@ module "eks" {
   # Only one of the below will apply based on var.use_managed_node_group
   # node_groups -> Managed Node Groups
   # worker_groups_launch_template -> Self-managed Node Groups
-  node_groups                   = { for k, v in local.managed_node_groups_launch_templates : k => v if var.use_managed_node_group }
-  worker_groups_launch_template = [for v in local.self_managed_groups_launch_templates : v if !var.use_managed_node_group]
+  # This creates one worker node group per subnet in var.private_subnet_ids by appending the default
+  # template with an additional "subnets" field. We don't want to restrict subnet for the model testing
+  # node group, so we don't append the "subnets" field to that node group.
+  node_groups = { for k, v in merge(local.managed_node_worker_group_launch_templates, local.managed_node_worker_group_model_testing_launch_template) : k => v if var.use_managed_node_group }
+
+  # This creates one worker group launch template per subnet in var.private_subnet_ids by appending the default
+  # template with an additional "subnets" field. We don't want to restrict subnet for the model testing
+  # node group, so we don't append the "subnets" field to that node group.
+  worker_groups_launch_template = [for v in concat(local.self_managed_worker_group_launch_templates, [local.self_managed_worker_group_model_testing_launch_template]) : v if !var.use_managed_node_group]
 
   workers_additional_policies = var.eks_cluster_node_iam_policies
 
@@ -211,20 +247,43 @@ module "iam_assumable_role_with_oidc_for_ebs_controller" {
 
   create_role = true
 
-  role_name        = "rime_ebs_${var.cluster_name}" # must be <= 64
+  role_name        = "rime_ebs_${var.cluster_name}_${substr(local.vpc_id_hashed, 0, 10)}" # must be <= 64
   role_description = "Role to provision block storage for rime cluster."
 
   provider_url = replace(module.eks.cluster_oidc_issuer_url, "https://", "")
 
   role_policy_arns = [
-    "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
+    aws_iam_policy.kms_ebs_access_policy.arn,
   ]
 
-  number_of_role_policy_arns = 1
+  number_of_role_policy_arns = 2
 
   oidc_fully_qualified_subjects = [
     "system:serviceaccount:kube-system:ebs-csi-controller-sa",
   ]
+
+  tags = var.tags
+}
+
+data "aws_iam_policy_document" "kms_ebs_access_policy_document" {
+  version = "2012-10-17"
+
+  statement {
+    actions = [
+      "kms:RevokeGrant",
+      "kms:CreateGrant",
+      "kms:ListGrants"
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "kms_ebs_access_policy" {
+  name = "rime_kms_ebs_policy_${var.cluster_name}_${substr(local.vpc_id_hashed, 0, 10)}" # must be <= 128
+
+  policy = data.aws_iam_policy_document.kms_ebs_access_policy_document.json
 
   tags = var.tags
 }
@@ -244,4 +303,17 @@ resource "aws_eks_addon" "ebs_csi_driver" {
     time_sleep.wait_3_minutes
   ]
   service_account_role_arn = module.iam_assumable_role_with_oidc_for_ebs_controller.this_iam_role_arn
+}
+
+resource "aws_eks_addon" "vpc_cni_addon" {
+  cluster_name      = module.eks.cluster_id
+  addon_name        = "vpc-cni"
+  addon_version     = var.vpc_cni_version
+  resolve_conflicts = "OVERWRITE"
+  count             = 1
+
+  configuration_values = jsonencode({
+    enableNetworkPolicy = var.enable_cni_network_policy ? "true" : "false"
+  })
+
 }
