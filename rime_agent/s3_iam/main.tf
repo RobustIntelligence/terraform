@@ -82,7 +82,7 @@ module "iam_assumable_role_with_oidc_for_s3_access" {
   number_of_role_policy_arns = 1
 
   oidc_fully_qualified_subjects = [
-    "system:serviceaccount:${var.namespace}:${var.service_account_name}"
+    for service_account_name in var.service_account_names : "system:serviceaccount:${var.namespace}:${service_account_name}"
   ]
 
   tags = var.tags
