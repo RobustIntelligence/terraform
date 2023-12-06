@@ -1,7 +1,10 @@
 rimeExtras:
   datadog: ${install_datadog}
   velero: ${install_velero}
+  prometheusNodeExporter: ${install_prometheus_node_exporter}
+  prometheusServer: ${install_prometheus_server}
 
+%{ if install_datadog ~}
 datadog:
   registry: "${docker_registry}"
   datadog:
@@ -14,14 +17,16 @@ datadog:
       repository: "robustintelligencehq/datadog-agent"
       pullSecrets:
         - name: ${docker_secret_name}
-      tag: 7.32.3
+      tag: 7.46.0
   clusterAgent:
     image:
       repository: "robustintelligencehq/datadog-cluster-agent"
       pullSecrets:
         - name: ${docker_secret_name}
-      tag: 1.14.0
+      tag: 7.46.0
+%{ endif ~}
 
+%{ if install_velero ~}
 velero:
   image:
     repository: "${docker_registry}/robustintelligencehq/velero"
@@ -61,3 +66,53 @@ velero:
         includedResources:
           - pvc
           - pv
+        includedNamespaces:
+          - '*'
+%{ endif ~}
+
+%{ if install_prometheus_node_exporter ~}
+prometheus-node-exporter:
+  image:
+    registry: "${docker_registry}"
+    repository: "robustintelligencehq/node-exporter"
+    tag: v1.6.0
+    pullPolicy: Always
+  extraArgs:
+    - --collector.disable-defaults
+    - --collector.cpu
+    - --collector.meminfo
+    - --collector.filefd
+    - --collector.loadavg
+    - --collector.netstat
+    - --collector.stat
+    - --collector.vmstat
+  podAnnotations:
+    prometheus.io/scrape: "true"
+%{ endif ~}
+
+%{ if install_prometheus_server ~}
+prometheus:
+  server:
+    image:
+      registry: "${docker_registry}"
+      repository: "robustintelligencehq/prometheus"
+      tag: v2.48.0
+      pullPolicy: Always
+    defaultFlagsOverride: ["--config.file=/etc/config/prometheus.yml"]
+    remoteWrite:
+      - url: "${remote_write_url}"
+    persistentVolume:
+      enabled: false
+  kube-state-metrics:
+    enabled: true
+    image:
+      registry: "${docker_registry}"
+      repository: "robustintelligencehq/kube-state-metrics"
+      tag: "v2.10.1"
+  prometheus-node-exporter:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  alertmanager:
+    enabled: false
+%{ endif ~}
