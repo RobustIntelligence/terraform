@@ -1,0 +1,77 @@
+# Value overrides created by the ri_firewall_helm_release Terraform module.
+riFirewall:
+
+%{ if length(datadog_tag_pod_annotation) > 0 ~}
+  commonAnnotations:
+    ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8080'
+%{ if enable_datadog_integration ~}
+    ad.datadoghq.com/firewall-server.checks: |
+      {
+        "robust_intelligence_ai_firewall": {
+          "init_config": {},
+          "instances": [
+            {
+              "openmetrics_endpoint": "http://%%host%%:8080/metrics"
+            }
+          ]
+        }
+      }
+%{ endif ~}
+%{ endif ~}
+
+  secrets:
+    existingIntegrationSecretsName: ${integration_secrets_name}
+    auth0Enabled: ${enable_auth0}
+
+  images:
+    backendImage:
+      name: "robustintelligencehq/firewall-backend:${ri_firewall_version}"
+      pullPolicy: "${pull_policy}"
+    firewallServerImage:
+      name: "robustintelligencehq/ri-firewall:${ri_firewall_version}"
+      pullPolicy: "${pull_policy}"
+    modelServerImage:
+      name: "robustintelligencehq/firewall-model-server:${ri_firewall_version}"
+      pullPolicy: "${pull_policy}"
+
+  ingress:
+    ingressClassName: ${ingress_class_name}
+    annotations: {
+      # # Uncomment if using externalDns (from rime-kube-system) and fill out the hostname
+      # # accordingly (e.g., "rime.${domain}")
+      external-dns.alpha.kubernetes.io/hostname: "${domain}",
+    }
+    labels: {}
+    tls: []
+
+  systemFirewallConfig:
+    baseConfig:
+      ${base_config_json}
+
+  yaraServer:
+    gitRepoToken: ${yara_github_read_token}
+
+ingress-nginx:
+  controller:
+    image:
+      registry: "docker.io"
+      image: "robustintelligencehq/ingress-nginx-controller"
+      tag: "v1.3.1"
+      digest: "sha256:d3642f55a6a7a102a9a579b3382fe73869c73890de4c94f28e36ba5e07925944"
+    scope:
+      enabled: true
+      namespace: ${namespace}
+    ingressClassResource:
+      name: ${ingress_class_name}
+      controllerValue: k8s.io/${ingress_class_name}
+    service:
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
+        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+        service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+        service.beta.kubernetes.io/aws-load-balancer-type: "external"
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+        service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+        service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"

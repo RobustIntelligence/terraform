@@ -1,7 +1,11 @@
 rimeExtras:
   datadog: ${install_datadog}
   velero: ${install_velero}
+  prometheusNodeExporter: ${install_prometheus_node_exporter}
+  prometheusServer: ${install_prometheus_server}
+  observabilityProxyServer: ${install_observability_proxy_server}
 
+%{ if install_datadog ~}
 datadog:
   registry: "${docker_registry}"
   datadog:
@@ -14,14 +18,16 @@ datadog:
       repository: "robustintelligencehq/datadog-agent"
       pullSecrets:
         - name: ${docker_secret_name}
-      tag: 7.32.3
+      tag: 7.46.0
   clusterAgent:
     image:
       repository: "robustintelligencehq/datadog-cluster-agent"
       pullSecrets:
         - name: ${docker_secret_name}
-      tag: 1.14.0
+      tag: 7.46.0
+%{ endif ~}
 
+%{ if install_velero ~}
 velero:
   image:
     repository: "${docker_registry}/robustintelligencehq/velero"
@@ -61,3 +67,55 @@ velero:
         includedResources:
           - pvc
           - pv
+        includedNamespaces:
+          - '*'
+%{ endif ~}
+
+%{ if install_prometheus_node_exporter ~}
+prometheus-node-exporter:
+  image:
+    registry: "${docker_registry}"
+    repository: "robustintelligencehq/node-exporter"
+    tag: v1.6.0
+    pullPolicy: IfNotPresent
+%{ endif ~}
+
+%{ if install_prometheus_server ~}
+prometheus:
+  server:
+    global:
+      external_labels:
+        cluster: "${cluster_name}"
+    image:
+      repository: "${docker_registry}/robustintelligencehq/prometheus"
+      tag: v2.48.0
+      pullPolicy: IfNotPresent
+    remoteWrite:
+      - url: "${proxy_remote_write_url}"
+  kube-state-metrics:
+    image:
+      registry: "${docker_registry}"
+      repository: "robustintelligencehq/kube-state-metrics"
+      tag: v2.10.1
+      pullPolicy: IfNotPresent
+  configmapReload:
+    prometheus:
+      enabled: true
+      image:
+        repository: "${docker_registry}/robustintelligencehq/prometheus-config-reloader"
+        tag: v0.70.0
+        pullPolicy: IfNotPresent
+%{ endif ~}
+
+%{ if install_observability_proxy_server ~}
+observabilityProxyServer:
+  image:
+    registry: "${docker_registry}"
+    name: robustintelligencehq/observability-proxy-server:v0.1
+    pullPolicy: IfNotPresent
+  port: ${proxy_remote_write_port}
+  containerPort: ${proxy_remote_write_port}
+  # The same remote_write URL is used for all Prometheus servers
+  remoteWriteURL: "${api_gateway_remote_write_url}"
+  remoteWriteSecretName: "${remote_write_secret_name}"
+%{ endif ~}
