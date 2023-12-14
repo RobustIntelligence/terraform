@@ -13,6 +13,7 @@ variable "create_managed_helm_release" {
 variable "datadog_api_key" {
   description = "API key for the Datadog server that will be used by the Datadog Agent."
   type        = string
+  default     = ""
   sensitive   = true
 }
 
@@ -57,8 +58,57 @@ variable "install_datadog" {
   default     = false
 }
 
+variable "install_prometheus_node_exporter" {
+  description = "Whether or not to install the Prometheus Node Exporter."
+  type        = bool
+  default     = false
+}
+
+variable "install_prometheus_server" {
+  description = "Whether or not to install the Prometheus Server."
+  type        = bool
+  default     = false
+}
+
+variable "install_observability_proxy_server" {
+  description = "Whether or not to install the Observability Proxy Server."
+  type        = bool
+  default     = false
+}
+
+variable "proxy_remote_write_url" {
+  description = "URL of the remote write endpoint in the observability proxy server. Promethes server writes to this endpoint."
+  type        = string
+  default     = "http://observability-proxy-server:8000/remote_write"
+}
+
+variable "proxy_remote_write_port" {
+  description = "Port for remote writing to the proxy server"
+  type        = number
+  default     = 8000
+}
+
+variable "api_gateway_remote_write_url" {
+  description = "URL of the remote write endpoint in the API Gateway. The proxy server writes to this endpoint."
+  type        = string
+  default     = ""
+}
+
+variable "remote_write_secret_name" {
+  description = "Name of the Kubernetes secret that holds the API key for the Prometheus remote write endpoint."
+  type        = string
+  default     = "remote-write-api-key"
+}
+
+variable "remote_write_api_key" {
+  description = "API key for the Prometheus remote write endpoint."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "install_velero" {
-  description = "Whether or not to install Velero."
+  description = "Whether or not to install Velero. Do not enable for Firewall Deployments"
   type        = bool
   default     = false
 }
@@ -77,6 +127,14 @@ variable "manage_namespace" {
 variable "oidc_provider_url" {
   description = "URL to the OIDC provider for IAM assumable roles used by K8s."
   type        = string
+}
+
+variable "override_values_file_path" {
+  description = <<EOT
+  Optional file path to override values file for the rime-extras helm release.
+  EOT
+  type        = string
+  default     = ""
 }
 
 variable "resource_name_suffix" {
@@ -122,4 +180,10 @@ variable "velero_backup_ttl" {
   description = "A suffix to name the IAM policy and role with."
   type        = string
   default     = "336h"
+}
+
+variable "cluster_name" {
+  description = "Name of the cluster."
+  type        = string
+  default     = ""
 }
