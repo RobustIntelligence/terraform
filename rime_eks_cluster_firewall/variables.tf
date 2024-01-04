@@ -1,5 +1,5 @@
 variable "cluster_name" {
-  description = "Name of eks cluster."
+  description = "Name of EKS cluster."
   type        = string
 }
 
@@ -16,19 +16,13 @@ variable "public_cluster_endpoint" {
 }
 
 variable "eks_cluster_node_iam_policies" {
-  description = "Policies to attach to eks worker nodes."
+  description = "Policies to attach to EKS worker nodes."
   type        = list(string)
   default     = []
 }
 
-variable "expandable_storage_class_name" {
-  description = "By default, we create an expandable storage class. We allow the name of this storage class to be changed for legacy reasons."
-  type        = string
-  default     = "expandable-storage"
-}
-
 variable "map_roles" {
-  description = "Additional IAM roles to add to the aws-auth configmap. You will need to set this for any role you want to allow access to eks"
+  description = "Additional IAM roles to add to the aws-auth configmap. You will need to set this for any role you want to allow access to EKS"
   type = list(object({
     rolearn  = string
     username = string
@@ -39,7 +33,7 @@ variable "map_roles" {
 }
 
 variable "map_users" {
-  description = "Additional IAM users to add to the aws-auth configmap. You will need to set this for any role you want to allow access to eks."
+  description = "Additional IAM users to add to the aws-auth configmap. You will need to set this for any role you want to allow access to EKS."
   type = list(object({
     userarn  = string
     username = string
@@ -47,51 +41,6 @@ variable "map_users" {
   }))
 
   default = []
-}
-
-variable "model_testing_worker_group_instance_types" {
-  description = "Instance types for the model testing worker group."
-  type        = list(string)
-  default     = ["t3.xlarge", "t2.xlarge"]
-
-  validation {
-    condition     = length(var.model_testing_worker_group_instance_types) >= 1
-    error_message = "Must specify at least one instance type."
-  }
-}
-
-variable "model_testing_worker_group_min_size" {
-  description = "Minimum size of the model testing worker group. Must be >= 0"
-  type        = number
-  default     = 0
-
-  validation {
-    condition     = var.model_testing_worker_group_min_size >= 0
-    error_message = "Model testing worker group min size must be greater than or equal to 0."
-  }
-}
-
-variable "model_testing_worker_group_desired_size" {
-  description = <<EOT
-  Desired size of the model testing worker group.
-  If var.use_managed_node_group is true, must be >= 1; otherwise, must be >= 0.
-  EOT
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.model_testing_worker_group_desired_size >= 0
-    error_message = <<EOT
-    Model testing worker group desired size must be greater than or equal to 0.
-    If var.use_managed_node_group is true, must be >= 1.
-    EOT
-  }
-}
-
-variable "model_testing_worker_group_max_size" {
-  description = "Maximum size of the model testing worker group. Must be >= min size. For best performance we recommend >= 10 nodes as the max size."
-  type        = number
-  default     = 10
 }
 
 variable "server_node_groups_overrides" {
@@ -104,27 +53,6 @@ variable "server_node_groups_overrides" {
   default     = {}
 }
 
-variable "model_testing_worker_groups_overrides" {
-  description = "A dictionary that specifies overrides for the model testing worker group launch templates. See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/locals.tf#L36 for valid values."
-  type        = any
-  default     = {}
-}
-
-variable "model_testing_node_groups_overrides" {
-  description = <<EOT
-  A dictionary that specifies overrides for the model testing node group launch templates.
-  See https://github.com/terraform-aws-modules/terraform-aws-eks/blob/v17.24.0/modules/node_groups/README.md for valid values.
-  Only applies if using Managed node groups (var.use_managed_node_group = true).
-  EOT
-  type        = any
-  default     = {}
-}
-
-variable "model_testing_worker_group_use_spot" {
-  description = "Use spot instances for model testing worker group."
-  type        = bool
-  default     = true
-}
 
 variable "private_subnet_ids" {
   description = "A list of private subnet ids to place the EKS cluster and workers within. Must be specified if create_eks is true"
@@ -203,17 +131,4 @@ variable "use_managed_node_group" {
   EOT
   type        = bool
   default     = false
-}
-
-variable "enable_cni_network_policy" {
-  description = "Boolen to enable network policy on the cluster. The aws cni plugin requires a min k8s version of 1.25 to enable this."
-  type        = bool
-  default     = false
-}
-
-
-variable "vpc_cni_version" {
-  description = "version tag of the vpc cni image "
-  type        = string
-  default     = "v1.15.1-eksbuild.1" # this is supported for k8s 1.23 onwards.
 }
