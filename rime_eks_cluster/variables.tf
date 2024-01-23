@@ -52,7 +52,7 @@ variable "map_users" {
 variable "model_testing_worker_group_instance_types" {
   description = "Instance types for the model testing worker group."
   type        = list(string)
-  default     = ["t2.xlarge", "t3.xlarge", "t3a.xlarge"]
+  default     = ["t3.xlarge", "t2.xlarge"]
 
   validation {
     condition     = length(var.model_testing_worker_group_instance_types) >= 1
@@ -61,7 +61,7 @@ variable "model_testing_worker_group_instance_types" {
 }
 
 variable "model_testing_worker_group_min_size" {
-  description = "Minimum size of the model testing worker group. Must be >= 1"
+  description = "Minimum size of the model testing worker group. Must be >= 0"
   type        = number
   default     = 0
 
@@ -141,7 +141,7 @@ variable "public_subnet_ids" {
 variable "server_worker_group_instance_types" {
   description = "Instance types for the server worker group."
   type        = list(string)
-  default     = ["t2.xlarge"]
+  default     = ["t3.xlarge"]
 
   validation {
     condition     = length(var.server_worker_group_instance_types) >= 1
@@ -152,7 +152,7 @@ variable "server_worker_group_instance_types" {
 variable "server_worker_group_min_size" {
   description = "Minimum size of the server worker group. Must be >= 1"
   type        = number
-  default     = 4
+  default     = 2
 
   validation {
     condition     = var.server_worker_group_min_size >= 1
@@ -163,7 +163,7 @@ variable "server_worker_group_min_size" {
 variable "server_worker_group_desired_size" {
   description = "Desired size of the server worker group. Must be >= 0"
   type        = number
-  default     = 5
+  default     = 4
 
   validation {
     condition     = var.server_worker_group_desired_size >= 0
@@ -203,4 +203,17 @@ variable "use_managed_node_group" {
   EOT
   type        = bool
   default     = false
+}
+
+variable "enable_cni_network_policy" {
+  description = "Boolen to enable network policy on the cluster. The aws cni plugin requires a min k8s version of 1.25 to enable this."
+  type        = bool
+  default     = false
+}
+
+
+variable "vpc_cni_version" {
+  description = "version tag of the vpc cni image "
+  type        = string
+  default     = "v1.15.1-eksbuild.1" # this is supported for k8s 1.23 onwards.
 }
