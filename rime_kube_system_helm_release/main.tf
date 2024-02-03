@@ -30,19 +30,23 @@ resource "kubernetes_secret" "docker-secrets" {
 # The YAML file created by instantiating `values_tmpl.yaml`.
 resource "local_file" "rime_kube_system" {
   content = templatefile("${path.module}/values_tmpl.yaml", {
+    acm_cert_arn                = var.acm_cert_arn
     cluster_name                = var.cluster_name
     cluster_autoscaler_role_arn = var.install_cluster_autoscaler ? module.iam_assumable_role_with_oidc_for_autoscaler[0].this_iam_role_arn : ""
     dns_role_arn                = var.install_external_dns ? module.iam_assumable_role_with_oidc_for_route53[0].this_iam_role_arn : ""
     docker_secret_name          = var.docker_secret_name
     docker_registry             = var.docker_registry
     domains                     = var.domains
+    install_cert_manager        = var.enable_cert_manager
     install_cluster_autoscaler  = var.install_cluster_autoscaler
     install_external_dns        = var.install_external_dns
+    install_ingress_nginx       = var.install_ingress_nginx
+    install_kserve              = var.install_kserve
     install_lb_controller       = var.install_lb_controller
     install_metrics_server      = var.install_metrics_server
     lb_controller_role_arn      = var.install_lb_controller ? module.iam_assumable_role_with_oidc_for_load_balancer_controller[0].this_iam_role_arn : ""
+    lb_type                     = var.internal_lbs ? "internal" : "internet-facing"
     region                      = data.aws_region.current.name
-    enable_cert_manager         = var.enable_cert_manager
   })
   filename = format("%s/rime_kube_system_values.yaml", local.output_dir)
 }
