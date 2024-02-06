@@ -1,3 +1,9 @@
+variable "acm_cert_arn" {
+  description = "ARN for the acm cert to validate domains for your tenant. This is only needed if creating a multi-tenant load balancer."
+  type        = string
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "Name of the cluster that the autoscaler is being installed into."
   type        = string
@@ -5,9 +11,9 @@ variable "cluster_name" {
 
 variable "create_managed_helm_release" {
   description = <<EOT
-  Whether to deploy a RIME Helm chart onto the provisioned infrastructure managed by Terraform.
-  Changing the state of this variable will either install/uninstall the RIME deployment
-  once the change is applied in Terraform. If you want to install the RIME package manually,
+  Whether to deploy a RI Helm chart onto the provisioned infrastructure managed by Terraform.
+  Changing the state of this variable will either install/uninstall the RI deployment
+  once the change is applied in Terraform. If you want to install the RI package manually,
   set this to false and use the generated values YAML file to deploy the release
   on the provisioned infrastructure.
   EOT
@@ -35,13 +41,13 @@ variable "docker_registry" {
 }
 
 variable "docker_secret_name" {
-  description = "The name of the Kubernetes secret used to pull the Docker image for RIME."
+  description = "The name of the Kubernetes secret used to pull the Docker image for RI applications."
   type        = string
   default     = "rimecreds"
 }
 
 variable "domains" {
-  description = "The domain to use for all exposed rime services."
+  description = "The domains for all RI application tenants handled by this cluster"
   type        = list(string)
 }
 
@@ -55,20 +61,26 @@ variable "helm_values_output_dir" {
   default     = ""
 }
 
+variable "enable_cert_manager" {
+  description = "Whether or not to install cert-manager. If not installed, we expect you to have some version of cert-manager installed or to not use internal tls. Do not enable for Firewall Deployments"
+  type        = bool
+  default     = true
+}
+
 variable "install_cluster_autoscaler" {
-  description = "Whether or not to install the cluster autoscaler. If not installed, we expect there to be enough compute to run stress tests without autoscaling."
+  description = "Whether or not to install the cluster autoscaler. If not installed, we expect there to be enough compute to run stress tests/ Firewall without autoscaling."
   type        = bool
   default     = false
 }
 
 variable "install_external_dns" {
-  description = "Whether or not to install external dns. If not installed we expect some way to provision dns records on your cloud provider."
+  description = "Whether or not to install external DNS. If not installed we expect some way to provision DNS records on your cloud provider."
   type        = bool
   default     = false
 }
 
 variable "install_lb_controller" {
-  description = "Whether or not to install the aws lb controller. If you do not install the lb controller or already have it present in your cluster, you will have to manually configure ALBs for ingress."
+  description = "Whether or not to install the AWS LB controller. If you do not install the LB controller or already have it present in your cluster, you will have to manually configure ALBs for ingress."
   type        = bool
   default     = true
 }
@@ -79,12 +91,30 @@ variable "install_metrics_server" {
   default     = true
 }
 
+variable "install_ingress_nginx" {
+  description = "Whether or not to install ingress-nginx. Only turn this on if you plan to use one load-balancer for multiple tenants."
+  type        = bool
+  default     = false
+}
+
+variable "install_kserve" {
+  description = "Whether or not to install kserve. Required to be true for clusters with the Firewall installed."
+  type        = bool
+  default     = false
+}
+
+variable "internal_lbs" {
+  description = "Whether or not to spin up the multi-tenant load balancer as an internal load balancer."
+  type        = bool
+  default     = false
+}
+
 variable "manage_namespace" {
   description = <<EOT
   Whether or not to manage the namespace we are installing into.
-  This will create the namespace(if applicable), setup docker credentials as a
-  kubernetes secret etc. Turn this flag off if you have trouble connecting to
-  k8s from your terraform environment.
+  This will create the namespace (if applicable), setup docker credentials as a
+  Kubernetes secret etc. Turn this flag off if you have trouble connecting to
+  k8s from your Terraform environment.
   EOT
   type        = bool
   default     = true
@@ -97,8 +127,7 @@ variable "oidc_provider_url" {
 
 variable "override_values_file_path" {
   description = <<EOT
-  Optional file path to override values file for the rime helm release.
-  Values produced by the terraform module will take precedence over these values.
+  Optional file path to override values file for the rime-kube-system Helm release.
   EOT
   type        = string
   default     = ""
@@ -110,22 +139,16 @@ variable "resource_name_suffix" {
 }
 
 variable "rime_helm_repository" {
-  description = "Helm Repository URL where the requested RIME chart for is located`."
+  description = "Helm Repository URL where the requested chart is located`."
   type        = string
 }
 
 variable "rime_version" {
-  description = "The version of the RIME software to be installed."
+  description = "The version of the rime-kube-system package to be installed."
   type        = string
 }
 
 variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
-}
-
-variable "enable_cert_manager" {
-  description = "enable deployment of cert-manager"
-  type        = bool
-  default     = true
 }
