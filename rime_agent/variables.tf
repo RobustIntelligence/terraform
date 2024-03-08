@@ -3,10 +3,9 @@ variable "namespace" {
   type        = string
 }
 
-variable "custom_values_file_path" {
+variable "override_values_file_path" {
   description = <<EOT
-  Optional file path to custom values file for the rime-agent helm release.
-  Values produced by the terraform module will take precedence over these values.
+  Optional file path to override values file for the rime-agent helm release.
   EOT
   type        = string
   default     = ""
@@ -148,16 +147,22 @@ variable "cp_namespace" {
 variable "log_archival_config" {
   description = <<EOT
   The configuration for RIME job log archival. This requires permissions to write to an s3 bucket.
-    * enable:                 whether or not to enable log archival.
-    * bucket_name:            the name of the bucket to store logs in.
+    * enable:                 Whether or not to enable log archival.
+    * bucket_name:            The name of the bucket to store logs in.
+    * endpoint:               The endpoint of the bucket to store logs in. For example, 's3.amazonaws.com'.
+    * type:                   The type of storage to use. Currently, only 's3' is supported.
   EOT
   type = object({
     enable      = bool
     bucket_name = string
+    endpoint    = string
+    type        = string
   })
   default = {
     enable      = false
     bucket_name = ""
+    endpoint    = "s3.amazonaws.com"
+    type        = "s3"
   }
 }
 
@@ -183,4 +188,10 @@ variable "separate_model_testing_group" {
   description = "Whether to force model testing jobs to run on dedicated model-testing nodes, using NodeSelectors"
   type        = bool
   default     = true
+}
+
+variable "enable_blob_store" {
+  description = "Whether to use blob store for the agent."
+  type        = bool
+  default     = false
 }
