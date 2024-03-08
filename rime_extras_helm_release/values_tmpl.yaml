@@ -1,10 +1,21 @@
 rimeExtras:
   datadog: ${install_datadog}
   velero: ${install_velero}
+  prometheusNodeExporter: ${install_prometheus_node_exporter}
+  prometheusServer: ${install_prometheus_server}
+  observabilityProxyServer: ${install_observability_proxy_server}
+  prometheusCloudwatchExporter: ${install_prometheus_cloudwatch_exporter}
+  logscaleFluentBit: ${install_logscale_fluentbit}
+  riObservabilityFluentBit: ${install_ri_observability_fluent_bit}
 
+%{ if install_datadog ~}
 datadog:
   registry: "${docker_registry}"
   datadog:
+%{ if disable_datadog_metrics ~}
+    prometheusScrape:
+      enabled: false
+%{ endif ~}
     apiKey: "${datadog_api_key}"
     tags:
       - "user:${datadog_user_tag}"
@@ -14,14 +25,16 @@ datadog:
       repository: "robustintelligencehq/datadog-agent"
       pullSecrets:
         - name: ${docker_secret_name}
-      tag: 7.32.3
+      tag: 7.46.0
   clusterAgent:
     image:
       repository: "robustintelligencehq/datadog-cluster-agent"
       pullSecrets:
         - name: ${docker_secret_name}
-      tag: 1.14.0
+      tag: 7.46.0
+%{ endif ~}
 
+%{ if install_velero ~}
 velero:
   image:
     repository: "${docker_registry}/robustintelligencehq/velero"
@@ -61,3 +74,292 @@ velero:
         includedResources:
           - pvc
           - pv
+        includedNamespaces:
+          - '*'
+%{ endif ~}
+
+%{ if install_prometheus_node_exporter ~}
+prometheus-node-exporter:
+  image:
+    registry: "${docker_registry}"
+    repository: "robustintelligencehq/node-exporter"
+    tag: v1.6.0
+    pullPolicy: IfNotPresent
+%{ endif ~}
+
+%{ if install_prometheus_server ~}
+prometheus:
+  server:
+    global:
+      external_labels:
+        cluster: "${cluster_name}"
+    image:
+      repository: "${docker_registry}/robustintelligencehq/prometheus"
+      tag: v2.48.0
+      pullPolicy: IfNotPresent
+    remoteWrite:
+      - url: "${proxy_remote_write_url}"
+  kube-state-metrics:
+    image:
+      registry: "${docker_registry}"
+      repository: "robustintelligencehq/kube-state-metrics"
+      tag: v2.10.1
+      pullPolicy: IfNotPresent
+  configmapReload:
+    prometheus:
+      enabled: true
+      image:
+        repository: "${docker_registry}/robustintelligencehq/prometheus-config-reloader"
+        tag: v0.70.0
+        pullPolicy: IfNotPresent
+  serverFiles:
+      # Custom scraping targets
+      scrape_configs:
+        - job_name: 'kubernetes-pods'
+          honor_labels: true
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+              action: keep
+              regex: true
+            - source_labels: [__meta_kubernetes_pod_annotation_app_kubernetes_io_owned_by]
+              action: keep
+              regex: ri
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+              action: replace
+              regex: (https?)
+              target_label: __scheme__
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+              action: replace
+              regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+              replacement: '[$2]:$1'
+              target_label: __address__
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+              action: replace
+              regex: (\d+);((([0-9]+?)(\.|$)){4})
+              replacement: $2:$1
+              target_label: __address__
+            - action: labelmap
+              regex: __meta_kubernetes_pod_annotation_prometheus_io_param_(.+)
+              replacement: __param_$1
+            - action: labelmap
+              regex: __meta_kubernetes_pod_label_(.+)
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: namespace
+            - source_labels: [__meta_kubernetes_pod_name]
+              action: replace
+              target_label: pod
+            - source_labels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Succeeded|Failed|Completed
+              action: drop
+            - source_labels: [__meta_kubernetes_pod_node_name]
+              action: replace
+              target_label: node
+        - job_name: aws-node
+          honor_labels: true
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_instance]
+              action: keep
+              regex: aws-vpc-cni
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+              action: keep
+              regex: true
+%{ endif ~}
+
+%{ if install_observability_proxy_server ~}
+observabilityProxyServer:
+  image:
+    registry: "${docker_registry}"
+    name: robustintelligencehq/observability-proxy-server:v0.1
+    pullPolicy: IfNotPresent
+  port: ${proxy_remote_write_port}
+  containerPort: ${proxy_remote_write_port}
+  # The same remote_write URL is used for all Prometheus servers
+  remoteWriteURL: "${api_gateway_remote_write_url}"
+  remoteWriteSecretName: "${remote_write_secret_name}"
+%{ endif ~}
+
+%{ if install_prometheus_cloudwatch_exporter ~}
+prometheus-cloudwatch-exporter:
+  image:
+    repository: "${docker_registry}/robustintelligencehq/cloudwatch-exporter"
+    tag: "v0.15.5"
+    pullPolicy: IfNotPresent
+  config: |-
+    region: "${region}"
+    period_seconds: 60
+    delay_seconds: 900
+    metrics:
+
+    - aws_metric_name: CPUUtilization
+      aws_namespace: AWS/EC2
+      aws_statistics:
+      - Average
+      aws_dimensions:
+      - InstanceId
+
+    # The number of unhealthy hosts
+    - aws_metric_name: UnHealthyHostCount
+      aws_namespace: AWS/ELB
+      aws_statistics:
+      - Minimum
+      aws_dimensions:
+      - LoadBalancerName
+      - AvailabilityZone
+
+    # The total number of bytes processed by the load balancer, including TCP/IP headers.
+    # This count includes traffic to and from targets, minus health check traffic.
+    - aws_metric_name: ProcessedBytes
+      aws_namespace: AWS/NetworkELB
+      aws_statistics:
+      - Sum
+      aws_dimensions:
+      - LoadBalancer
+      - AvailabilityZone
+
+    # The total number of concurrent flows (or connections) from clients to targets.
+    - aws_metric_name: ActiveFlowCount
+      aws_namespace: AWS/NetworkELB
+      aws_statistics:
+      - Average
+      aws_dimensions:
+      - LoadBalancer
+      - AvailabilityZone
+
+    # The number of new ICMP messages rejected by the inbound rules of the load balancer security groups.
+    - aws_metric_name: SecurityGroupBlockedFlowCount_Inbound_ICMP
+      aws_namespace: AWS/NetworkELB
+      aws_statistics:
+      - Sum
+      aws_dimensions:
+      - LoadBalancer
+      - AvailabilityZone
+
+    # The number of new TCP messages rejected by the inbound rules of the load balancer security groups.
+    - aws_metric_name: SecurityGroupBlockedFlowCount_Inbound_TCP
+      aws_namespace: AWS/NetworkELB
+      aws_statistics:
+      - Sum
+      aws_dimensions:
+      - LoadBalancer
+      - AvailabilityZone
+
+    # The number of new UDP messages rejected by the inbound rules of the load balancer security groups.
+    - aws_metric_name: SecurityGroupBlockedFlowCount_Inbound_UDP
+      aws_namespace: AWS/NetworkELB
+      aws_statistics:
+      - Sum
+      aws_dimensions:
+      - LoadBalancer
+      - AvailabilityZone
+
+%{ endif ~}
+
+%{ if install_logscale_fluentbit ~}
+humio-helm-charts:
+  humio-fluentbit:
+    image: "${docker_registry}/robustintelligencehq/fluent-bit:2.0.3"
+    imagePullPolicy: IfNotPresent
+    imagePullSecrets:
+      - name: ${docker_secret_name}
+    enabled: true
+    humioHostname: "${logscale_hostname}"
+    token: "${logscale_ingest_token}"
+%{ endif ~}
+
+%{ if install_ri_observability_fluent_bit ~}
+fluent-bit:
+  image:
+    repository: "${docker_registry}/robustintelligencehq/fluent-bit"
+    tag: "2.2.2"
+    pullPolicy: IfNotPresent
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+  imagePullSecrets:
+    - name: ${docker_secret_name}
+  ## https://docs.fluentbit.io/manual/administration/configuring-fluent-bit/classic-mode/configuration-file
+  config:
+    service: |
+      [SERVICE]
+        Daemon Off
+        Flush {{ .Values.flush }}
+        Log_Level {{ .Values.logLevel }}
+        Parsers_File /fluent-bit/etc/parsers.conf
+        Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port {{ .Values.metricsPort }}
+        Health_Check On
+
+    ## https://docs.fluentbit.io/manual/pipeline/inputs
+    inputs: |
+      [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        multiline.parser docker, cri
+        Tag kube.*
+        Mem_Buf_Limit 10MB
+        Skip_Long_Lines On
+
+    ## https://docs.fluentbit.io/manual/pipeline/filters
+    filters: |
+      [FILTER]
+        Name kubernetes
+        Match kube.*
+        Merge_Log On
+        Keep_Log Off
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude On
+        Annotations Off
+        Labels Off
+        Buffer_Size 10MB
+
+      [FILTER]
+        Name modify
+        Match *
+        Condition Key_does_not_exist attr.error.code
+        Rename attr.error attr.error_str
+
+      [FILTER]
+        Name modify
+        Match *
+        Condition Key_exists message
+        Rename message msg
+
+      [FILTER]
+        Name nest
+        Match kube.*
+        Operation lift
+        Nested_under kubernetes
+
+      [FILTER]
+        Name modify
+        Match kube.*
+        Rename log msg
+        Add cluster ${cluster_name}
+        Copy namespace_name namespace_name_kw
+
+    ## https://docs.fluentbit.io/manual/pipeline/outputs
+    outputs: |
+      [OUTPUT]
+        Name opensearch
+        Match kube.*
+        Host search-ri-opensearch-vqycu6e5fafj4zojubom4zzl4y.us-west-2.es.amazonaws.com
+        Port 443
+        Index ri_logs.%Y.%m.%d
+        AWS_Auth On
+        AWS_Region us-west-2
+        AWS_Role_ARN arn:aws:iam::746181457053:role/fluentbit_role
+        Suppress_Type_Name On
+        TLS On
+        Trace_Error On
+%{ endif ~}

@@ -7,8 +7,6 @@ rimeAgent:
 %{ if length(datadog_tag_pod_annotation) > 0 ~}
   commonAnnotations:
     ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
-  commonLabels:
-    tags.datadoghq.com/service: '${datadog_tag_pod_annotation}'
 %{ endif ~}
 
   images:
@@ -38,16 +36,23 @@ rimeAgent:
     datasetManagerRestAddress: http://${ dataset_manager_server_rest_addr }
 %{ endif ~}
 
+  rimeCrossPlaneServer:
+    serviceAccount:
+      name: ${ cross_plane_server_service_account_name }
+      annotations: {
+        eks.amazonaws.com/role-arn: ${ s3_reader_role_arn }
+      }
+
   operator:
     logArchival:
       enabled: ${log_archival_config.enable}
 %{if log_archival_config.enable ~}
       storageBucketName: ${log_archival_config.bucket_name}
-      endpoint: "s3.amazonaws.com"
-      type: "s3"
+      endpoint: ${log_archival_config.endpoint}
+      type: ${log_archival_config.type}
     serviceAccount:
       # Account used by services that need access to blob storage.
-      # This account has special priveleges to read and write to S3 bucket used for blob storage.
+      # This account has special privileges to read and write to S3 bucket used for blob storage.
       annotations: {
         eks.amazonaws.com/role-arn: ${log_archival_config.role_arn}
       }
@@ -68,6 +73,20 @@ rimeAgent:
         dedicated: model-testing
 %{ endif ~}
 
+%{if blob_store_config.enable ~}
+fileServer:
+  enable: true
+  config:
+    storageBucketName: ${blob_store_config.bucket_name}
+    endpoint: "s3.amazonaws.com"
+    type: "s3"
+  serviceAccount:
+    # Account used by services that need access to blob storage.
+    # This account has special privileges to read and write to S3 bucket used for blob storage.
+    annotations: {
+      eks.amazonaws.com/role-arn: ${blob_store_config.role_arn}
+    }
+%{ endif ~}
 tls:
 %{ if enable_cert_manager ~}
   crossplaneEnabled: ${enable_crossplane_tls}
