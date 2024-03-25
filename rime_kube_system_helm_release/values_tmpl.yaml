@@ -3,11 +3,14 @@ rimeSystem:
   externalDns: ${install_external_dns}
   awsLoadBalancerController: ${install_lb_controller}
   metricsServer: ${install_metrics_server}
+  ingressNginx: ${install_ingress_nginx}
+  kserve: ${install_kserve}
 
+%{ if install_lb_controller ~}
 aws-load-balancer-controller:
   image:
     repository: "${docker_registry}/robustintelligencehq/aws-alb-ingress-controller"
-    tag: "v2.4.2"
+    tag: "v2.6.1"
   imagePullSecrets:
     - name: ${docker_secret_name}
   clusterName: "${cluster_name}"
@@ -16,22 +19,42 @@ aws-load-balancer-controller:
     annotations:
       eks.amazonaws.com/role-arn: "${lb_controller_role_arn}"
   region: "${region}"
+%{ endif ~}
 
+%{ if install_cluster_autoscaler ~}
 cluster-autoscaler:
   image:
     repository: "${docker_registry}/robustintelligencehq/cluster-autoscaler"
-    tag: "v1.21.0"
+    tag: "v1.25.3"
     pullSecrets:
       - ${docker_secret_name}
   autoDiscovery:
     clusterName: "${cluster_name}"
   awsRegion: "${region}"
+  extraArgs:
+    balance-similar-node-groups: true
   rbac:
     serviceAccount:
       annotations: {
         eks.amazonaws.com/role-arn: "${cluster_autoscaler_role_arn}"
       }
+%{ endif ~}
 
+%{ if install_kserve ~}
+kserve:
+  kserve:
+    # Do not use the Serverless mode; it requires Istio to be installed.
+    # RawDeployment is enough for serving models internally with long-running
+    # deployments.
+    controller:
+      deploymentMode: "RawDeployment"
+    # We do not use ModelMesh; it is an advanced feature for serving multiple
+    # models from a single container.
+    modelmesh:
+      enabled: false
+%{ endif ~}
+
+%{ if install_external_dns ~}
 external-dns:
   image:
     repository: "${docker_registry}/robustintelligencehq/external-dns"
@@ -46,16 +69,20 @@ external-dns:
   serviceAccount:
     annotations:
       eks.amazonaws.com/role-arn: "${dns_role_arn}"
+%{ endif ~}
 
+%{ if install_metrics_server ~}
 metrics-server:
   image:
     repository: "${docker_registry}/robustintelligencehq/metrics-server"
     tag: "v0.6.1"
   imagePullSecrets:
     - name: ${docker_secret_name}
+%{ endif ~}
 
+%{ if install_cert_manager ~}
 cert-manager:
-  enabled: ${enable_cert_manager}
+  enabled: ${install_cert_manager}
   installCRDs: true
   global:
     imagePullSecrets:
@@ -75,3 +102,33 @@ cert-manager:
     image:
       registry: ${docker_registry}
       repository: robustintelligencehq/cert-manager-ctl
+%{ endif ~}
+%{ if install_ingress_nginx ~}
+# Ingress-Nginx controller Subchart. See https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx for all parameters.
+ingress-nginx:
+  imagePullSecrets:
+    - name: ${docker_secret_name}
+  controller:
+    image:
+      registry: "${docker_registry}"
+      image: "robustintelligencehq/ingress-nginx-controller"
+      tag: "v1.8.1"
+      digest: "sha256:bd54c330f73b17d0bf19f3ec3832b285d43a4c9fa5fe15f5a7accd3de706b438"
+    ingressClassResource:
+      name: ri-kube-system
+      controllerValue: k8s.io/ri-kube-system
+    admissionWebhooks:
+      enabled: false
+    service:
+      targetPorts:
+        http: http
+        https: http
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "${acm_cert_arn}"
+        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+        service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+        service.beta.kubernetes.io/aws-load-balancer-type: "external"
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+        service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+        service.beta.kubernetes.io/aws-load-balancer-scheme: "${lb_type}"
+%{ endif ~}
