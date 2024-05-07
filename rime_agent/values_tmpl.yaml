@@ -3,13 +3,15 @@
 # NOTE TO DEVELOPERS: do NOT put default values here! Please put those values in the chart's values.yaml file
 %{ endif ~}
 rimeAgent:
-  isInternal: true
 %{ if length(datadog_tag_pod_annotation) > 0 ~}
   commonAnnotations:
     ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
-  commonLabels:
-    tags.datadoghq.com/service: '${datadog_tag_pod_annotation}'
 %{ endif ~}
+
+  id: ${agent_id}
+
+  existingSecretName: ${existing_api_key_secret_name}
+  existingSigningKeySecretName: ${existing_signing_key_secret_name}
 
   images:
 %{ if length(image_pull_secret_name) > 0 ~}
@@ -22,32 +24,38 @@ rimeAgent:
     modelTestJobImage:
       registry: "${docker_registry}"
       name: "${default_rime_engine_image}:${version}"
+%{ if generative_model_testing_config.enable ~}
+    detectionEngineImage:
+      registry: "${docker_registry}"
+      name: "${generative_model_testing_config.detection_engine_image}:${generative_model_testing_config.firewall_version}"
+%{ endif ~}
 
   connections:
-    uploadServerAddress: "${ upload_server_addr }"
-    agentManagerAddress: "${ agent_manager_server_addr }"
+  # Point the platform address directly at the NGINX ingress controller, so that
+  # traffic for the internal agent does not leave the cluster.
 %{ if enable_crossplane_tls ~}
-    uploadServerRestAddress: https://${ upload_server_rest_addr }
-    firewallServerRestAddress: https://${ firewall_server_rest_addr }
-    dataCollectorRestAddress: https://${ data_collector_rest_addr }
-    datasetManagerRestAddress: https://${ dataset_manager_server_rest_addr }
+    platformAddress: https://${ cp_nginx_controller_rest_addr }
 %{ else ~}
-    uploadServerRestAddress: http://${ upload_server_rest_addr }
-    firewallServerRestAddress: http://${ firewall_server_rest_addr }
-    dataCollectorRestAddress: http://${ data_collector_rest_addr }
-    datasetManagerRestAddress: http://${ dataset_manager_server_rest_addr }
+    platformAddress: http://${ cp_nginx_controller_rest_addr }
 %{ endif ~}
+
+  rimeCrossPlaneServer:
+    serviceAccount:
+      name: ${ cross_plane_server_service_account_name }
+      annotations: {
+        eks.amazonaws.com/role-arn: ${ s3_reader_role_arn }
+      }
 
   operator:
     logArchival:
       enabled: ${log_archival_config.enable}
 %{if log_archival_config.enable ~}
       storageBucketName: ${log_archival_config.bucket_name}
-      endpoint: "s3.amazonaws.com"
-      type: "s3"
+      endpoint: ${log_archival_config.endpoint}
+      type: ${log_archival_config.type}
     serviceAccount:
       # Account used by services that need access to blob storage.
-      # This account has special priveleges to read and write to S3 bucket used for blob storage.
+      # This account has special privileges to read and write to S3 bucket used for blob storage.
       annotations: {
         eks.amazonaws.com/role-arn: ${log_archival_config.role_arn}
       }
@@ -68,6 +76,23 @@ rimeAgent:
         dedicated: model-testing
 %{ endif ~}
 
+  detectionServer:
+    enabled: ${generative_model_testing_config.enable}
+
+%{if blob_store_config.enable ~}
+fileServer:
+  enable: true
+  config:
+    storageBucketName: ${blob_store_config.bucket_name}
+    endpoint: "s3.amazonaws.com"
+    type: "s3"
+  serviceAccount:
+    # Account used by services that need access to blob storage.
+    # This account has special privileges to read and write to S3 bucket used for blob storage.
+    annotations: {
+      eks.amazonaws.com/role-arn: ${blob_store_config.role_arn}
+    }
+%{ endif ~}
 tls:
 %{ if enable_cert_manager ~}
   crossplaneEnabled: ${enable_crossplane_tls}
@@ -75,3 +100,19 @@ tls:
   crossplaneEnabled: false
 %{ endif ~}
   enableCertManager: ${enable_cert_manager}
+
+ri-detection-resources:
+  enabled: ${generative_model_testing_config.enable}
+
+  modelServerImage:
+    registry: "${docker_registry}"
+    name: "${generative_model_testing_config.model_server_image}:${generative_model_testing_config.firewall_version}"
+  firewallBackendImage:
+    registry: "${docker_registry}"
+    name: "${generative_model_testing_config.firewall_backend_image}:${generative_model_testing_config.firewall_version}"
+
+  secrets:
+    existingIntegrationSecretsName: "${generative_model_testing_config.secret_name}"
+
+supportBundle:
+  enabled:  ${enable_support_bundle}
