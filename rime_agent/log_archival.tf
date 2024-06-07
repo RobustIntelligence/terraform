@@ -21,7 +21,7 @@ data "aws_iam_policy_document" "s3_log_archival_access_policy_document" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.log_archival_config.bucket_name}/*",
+      "arn:aws:s3:::${var.log_archival_config.bucket_name}/logs/*",
     ]
   }
 
