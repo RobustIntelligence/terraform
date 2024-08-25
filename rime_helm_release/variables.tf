@@ -20,6 +20,11 @@ variable "create_managed_helm_release" {
   default     = false
 }
 
+variable "customer_name" {
+  description = "The name of the customer that is used in the licence file. This name should be unique for each rime instance since we generate the license based on the name."
+  type        = string
+}
+
 variable "docker_credentials" {
   description = <<EOT
   Credentials to pass into docker image pull secrets. Has creds for all registries. Must be structured like so:
@@ -77,10 +82,13 @@ variable "domain" {
   type        = string
 }
 
-variable "enable_api_key_auth" {
-  description = "Use api keys to authenticate api requests"
-  type        = bool
-  default     = true
+variable "ip_allowlist" {
+  # Note: external client IP addresses are preserved by the load balancer. You may also want to include the external IP
+  # address for the cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server
+  # using that IP address.
+  description = "A set of CIDR routes to add to the allowlist for all ingresses. If not specified, all IP addresses are allowed."
+  type        = list(string)
+  default     = []
 }
 
 variable "disable_vault_tls" {
@@ -131,6 +139,12 @@ variable "enable_blob_store" {
   default     = true
 }
 
+variable "enable_ingress_nginx" {
+  description = "Whether or not to install ingress-nginx. Only turn this off if you have some other ingress controller installed."
+  type        = bool
+  default     = true
+}
+
 variable "external_vault" {
   description = "Whether to use external Vault."
   type        = bool
@@ -174,6 +188,24 @@ variable "image_registry_config" {
   }
 }
 
+variable "ingress_class_name" {
+  description = "The name of the ingress class to use for RIME services. If empty, ingress class will be ri-<namespace>"
+  type        = string
+  default     = ""
+}
+
+variable "internal_agent_config" {
+  description = "Configuration for the internal agent. If disabled, no internal agent will be set up for this CP."
+  type = object({
+    enable   = bool
+    agent_id = string
+  })
+  default = {
+    enable   = false
+    agent_id = ""
+  }
+}
+
 variable "manage_namespace" {
   description = <<EOT
   Whether or not to manage the namespace we are installing into.
@@ -213,6 +245,13 @@ variable "mongo_db_size" {
   default     = "32Gi"
 }
 
+variable "openai_api_key" {
+  description = "The OpenAI API key to use for the RIME backend service."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
@@ -228,6 +267,7 @@ variable "verbose" {
 variable "acm_cert_arn" {
   description = "ARN for the acm cert to validate our domain."
   type        = string
+  default     = ""
 }
 
 variable "internal_lbs" {
@@ -325,8 +365,19 @@ variable "cloud_platform_config" {
 variable "override_values_file_path" {
   description = <<EOT
   Optional file path to override values file for the rime helm release.
-  Values produced by the terraform module will take precedence over these values.
   EOT
   type        = string
   default     = ""
+}
+
+variable "s3_license_enabled" {
+  description = "enable feature flag fetching jwt file from s3"
+  type        = bool
+  default     = false
+}
+
+variable "isolate_namespace_traffic" {
+  description = "enable isolation of namespace pods and block all ingress from outside the namespace"
+  type        = bool
+  default     = false
 }
