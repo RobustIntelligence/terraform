@@ -96,6 +96,7 @@ resource "local_file" "helm_values" {
     platform_address                     = var.platform_address
     api_key                              = var.api_key
     validate_response_visibility_control = var.validate_response_visibility_control
+    maxmind_license_key                  = var.maxmind_license_key
   })
   filename = format("%s/firewall_values_terraform_%s.yaml", local.output_dir, var.namespace)
 }

@@ -249,6 +249,7 @@ resource "local_file" "helm_values" {
     datadog_tag_pod_annotation   = var.datadog_tag_pod_annotation
     model_output_is_sensitive    = var.model_output_is_sensitive
     initialize_support_user      = var.initialize_support_user
+    maxmind_license_key          = var.maxmind_license_key
   })
   filename = format("%s/values_%s.yaml", length(var.helm_values_output_dir) == 0 ? path.cwd : var.helm_values_output_dir, var.namespace)
 }
