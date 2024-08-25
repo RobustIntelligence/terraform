@@ -82,15 +82,6 @@ variable "domain" {
   type        = string
 }
 
-variable "ip_allowlist" {
-  # Note: external client IP addresses are preserved by the load balancer. You may also want to include the external IP
-  # address for the cluster on the allowlist if OIDC is being used, since OIDC will make a callback to the auth-server
-  # using that IP address.
-  description = "A set of CIDR routes to add to the allowlist for all ingresses. If not specified, all IP addresses are allowed."
-  type        = list(string)
-  default     = []
-}
-
 variable "disable_vault_tls" {
   description = "disable tls for vault"
   type        = bool
