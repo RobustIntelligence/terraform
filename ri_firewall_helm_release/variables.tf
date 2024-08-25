@@ -216,6 +216,11 @@ variable "platform_address" {
   default     = ""
 }
 
+variable "maxmind_license_key" {
+  description = "MaxMind license key to use the MaxMind GeoIP2 database."
+  type        = string
+}
+
 # Allows us to make elements of this helm release depend on outputs from other resources
 variable "dependency_link" {
   description = "The dependency link to the helm release."

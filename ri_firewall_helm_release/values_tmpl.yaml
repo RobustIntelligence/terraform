@@ -99,6 +99,7 @@ ingress-nginx:
     scope:
       enabled: true
       namespace: ${namespace}
+    maxmindLicenseKey: "${maxmind_license_key}"
     ingressClassResource:
       name: ${ingress_class_name}
       controllerValue: k8s.io/${ingress_class_name}

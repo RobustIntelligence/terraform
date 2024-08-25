@@ -385,3 +385,8 @@ variable "initialize_support_user" {
   type        = bool
   default     = true
 }
+
+variable "maxmind_license_key" {
+  description = "MaxMind license key to use the MaxMind GeoIP2 database."
+  type        = string
+}
