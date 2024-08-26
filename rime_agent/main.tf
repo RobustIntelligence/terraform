@@ -126,7 +126,8 @@ resource "local_file" "terraform_provided_values" {
     enable_crossplane_tls            = var.enable_crossplane_tls
     enable_cert_manager              = var.enable_cert_manager
     enable_support_bundle            = var.enable_support_bundle
-
+    model_test_job_service_account_name     = local.model_test_job_service_account_name
+    cross_plane_server_service_account_name = local.cross_plane_server_service_account_name
     generative_model_testing_config = {
       enable                 = var.generative_model_testing_config.enable
       secret_name            = var.generative_model_testing_config.enable ? kubernetes_secret.generative-model-testing-secrets[0].metadata[0].name : ""
