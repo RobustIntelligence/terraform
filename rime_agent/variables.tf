@@ -3,10 +3,9 @@ variable "namespace" {
   type        = string
 }
 
-variable "custom_values_file_path" {
+variable "override_values_file_path" {
   description = <<EOT
-  Optional file path to custom values file for the rime-agent helm release.
-  Values produced by the terraform module will take precedence over these values.
+  Optional file path to override values file for the rime-agent helm release.
   EOT
   type        = string
   default     = ""
@@ -122,6 +121,27 @@ variable "rime_docker_default_engine_image" {
   default     = "robustintelligencehq/rime-testing-engine-dev"
 }
 
+variable "generative_model_testing_config" {
+  description = <<EOT
+  The configuration for generative model testing for the RIME agent.
+    * enable:                                 Whether or not to enable generative model testing.
+    * huggingface_api_key:                    API key to HuggingFace for model servers.
+    * rime_docker_detection_engine_image      Docker image for the detection server.
+    * rime_docker_model_server_image          Docker image for the model servers.
+    * rime_docker_firewall_image_version      Docker image version to use for the GAI model testing images.
+  EOT
+  type = object({
+    enable                             = bool
+    huggingface_api_key                = optional(string, "")
+    rime_docker_detection_engine_image = optional(string, "robustintelligencehq/ri-firewall")
+    rime_docker_model_server_image     = optional(string, "robustintelligencehq/firewall-model-server")
+    rime_docker_firewall_image_version = optional(string, "latest")
+  })
+  default = {
+    enable = false
+  }
+}
+
 variable "docker_registry" {
   description = "The name of the Docker registry that holds the chart images"
   type        = string
@@ -139,6 +159,11 @@ variable "cp_release_name" {
   default     = "rime"
 }
 
+variable "cp_domain_name" {
+  description = "Domain name of the control plane."
+  type        = string
+}
+
 variable "cp_namespace" {
   description = "Namespace where the control plane helm chart is installed. Used to determine addresses."
   type        = string
@@ -148,16 +173,22 @@ variable "cp_namespace" {
 variable "log_archival_config" {
   description = <<EOT
   The configuration for RIME job log archival. This requires permissions to write to an s3 bucket.
-    * enable:                 whether or not to enable log archival.
-    * bucket_name:            the name of the bucket to store logs in.
+    * enable:                 Whether or not to enable log archival.
+    * bucket_name:            The name of the bucket to store logs in.
+    * endpoint:               The endpoint of the bucket to store logs in. For example, 's3.amazonaws.com'.
+    * type:                   The type of storage to use. Currently, only 's3' is supported.
   EOT
   type = object({
     enable      = bool
     bucket_name = string
+    endpoint    = string
+    type        = string
   })
   default = {
     enable      = false
     bucket_name = ""
+    endpoint    = "s3.amazonaws.com"
+    type        = "s3"
   }
 }
 
@@ -183,4 +214,10 @@ variable "separate_model_testing_group" {
   description = "Whether to force model testing jobs to run on dedicated model-testing nodes, using NodeSelectors"
   type        = bool
   default     = true
+}
+
+variable "enable_blob_store" {
+  description = "Whether to use blob store for the agent."
+  type        = bool
+  default     = false
 }
