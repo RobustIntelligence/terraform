@@ -138,9 +138,9 @@ resource "local_file" "terraform_provided_values" {
 
     # Address of the CP NGINX ingress controller service for the internal
     # agent to communicate with.
-    cp_nginx_controller_rest_addr = "${var.cp_release_name}-ingress-nginx-controller"
-
-    cp_domain_name = var.cp_domain_name
+    cp_nginx_controller_rest_addr           = "${var.cp_release_name}-ingress-nginx-controller"
+    cp_domain_name                          = var.cp_domain_name
+    cross_plane_server_service_account_name = local.cross_plane_server_service_account_name
 
     log_archival_config = {
       enable      = var.log_archival_config.enable
