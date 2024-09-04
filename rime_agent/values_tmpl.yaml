@@ -3,10 +3,6 @@
 # NOTE TO DEVELOPERS: do NOT put default values here! Please put those values in the chart's values.yaml file
 %{ endif ~}
 rimeAgent:
-%{ if length(datadog_tag_pod_annotation) > 0 ~}
-  commonAnnotations:
-    ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
-%{ endif ~}
 
   id: ${agent_id}
 
