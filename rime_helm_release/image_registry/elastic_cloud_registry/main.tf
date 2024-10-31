@@ -5,6 +5,7 @@ data "aws_partition" "current" {}
 locals {
   ecr_registry_arn         = "arn:${data.aws_partition.current.partition}:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}"
   unique_repository_prefix = "${var.repository_prefix}/${var.resource_name_suffix}/${var.namespace}"
+  is_namespace_default     = (var.namespace == "default")
 }
 # This policy depends on the set of S3 paths that our service needs access to
 # supplied by the inputs to our terraform module.
@@ -67,7 +68,10 @@ module "iam_assumable_role_with_oidc_for_ecr_repo_management" {
 
   number_of_role_policy_arns = 1
 
-  oidc_fully_qualified_subjects = ["system:serviceaccount:${var.namespace}:rime-${var.namespace}-image-registry-server"]
+  oidc_fully_qualified_subjects = (local.is_namespace_default ?
+    ["system:serviceaccount:${var.namespace}:rime-${var.resource_name_suffix}-image-registry-server"] :
+    ["system:serviceaccount:${var.namespace}:rime-${var.namespace}-image-registry-server"]
+  )
 
   tags = var.tags
 }
@@ -126,9 +130,10 @@ module "iam_assumable_role_with_oidc_for_ecr_image_builder" {
 
   number_of_role_policy_arns = 1
 
-  oidc_fully_qualified_subjects = [
-    "system:serviceaccount:${var.namespace}:rime-${var.namespace}-image-registry-server-job"
-  ]
+  oidc_fully_qualified_subjects = (local.is_namespace_default ?
+    ["system:serviceaccount:${var.namespace}:rime-${var.resource_name_suffix}-image-registry-server-job"] :
+    ["system:serviceaccount:${var.namespace}:rime-${var.namespace}-image-registry-server-job"]
+  )
 
   tags = var.tags
 }

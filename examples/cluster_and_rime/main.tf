@@ -4,7 +4,7 @@
 # Pattern 2: Cluster + Application (Cluster)
 # This main.tf deploys a bootstrapped EKS cluster for use with the Robust Intelligence application.
 #
-# Version 2.0.0
+# Version 2.3
 # ----------------------------------------------------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -16,15 +16,23 @@ provider "aws" {
 
 provider "kubernetes" {
   host                   = data.aws_eks_cluster.cluster.endpoint
-  token                  = data.aws_eks_cluster_auth.cluster.token
   cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    args        = ["eks", "get-token", "--cluster-name", module.rime_eks_cluster.cluster_name]
+    command     = "aws"
+  }
 }
 
 provider "helm" {
   kubernetes {
     host                   = data.aws_eks_cluster.cluster.endpoint
-    token                  = data.aws_eks_cluster_auth.cluster.token
     cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      args        = ["eks", "get-token", "--cluster-name", module.rime_eks_cluster.cluster_name]
+      command     = "aws"
+    }
   }
 }
 
@@ -32,10 +40,6 @@ provider "helm" {
 # DATA SOURCES
 # ----------------------------------------------------------------------------------------------------------------------
 data "aws_eks_cluster" "cluster" {
-  name = module.rime_eks_cluster.cluster_name
-}
-
-data "aws_eks_cluster_auth" "cluster" {
   name = module.rime_eks_cluster.cluster_name
 }
 
@@ -52,7 +56,7 @@ data "aws_secretsmanager_secret_version" "rime-secrets" {
 
 locals {
   # The version of Robust Intelligence that you are deploying
-  rime_version = "2.0.0"
+  rime_version = "2.3.X"
 
   # Generally used as a suffix for various Terraform resources
   infra_name = "acme"
@@ -72,23 +76,23 @@ locals {
   # Specify a secret string value (by default, comes from AWS Secrets Manager)
   secrets = jsondecode(data.aws_secretsmanager_secret_version.rime-secrets.secret_string)
 
-  tags    = { ManagedBy = "Terraform" }
+  tags = { ManagedBy = "Terraform" }
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
 # SUBMODULES
 # ----------------------------------------------------------------------------------------------------------------------
 module "rime_eks_cluster" {
-  source = "github.com/RobustIntelligence/terraform//rime_eks_cluster?ref=2.0.0"
+  source = "github.com/RobustIntelligence/terraform//rime_eks_cluster?ref=2.3.X"
 
   cluster_name    = local.cluster_name
-  cluster_version = "1.23"
+  cluster_version = "1.24"
 
   vpc_id             = ""
   private_subnet_ids = []
   public_subnet_ids  = []
 
-  model_testing_worker_group_instance_types = [ "m4.4xlarge" ]
+  model_testing_worker_group_instance_types = ["m4.4xlarge"]
   model_testing_worker_group_min_size       = 0
   model_testing_worker_group_desired_size   = 1
   model_testing_worker_group_max_size       = 10
@@ -109,7 +113,8 @@ module "rime_eks_cluster" {
 }
 
 module "rime_kube_system_helm_release" {
-  source = "github.com/RobustIntelligence/terraform//rime_kube_system_helm_release?ref=2.0.0"
+  source = "github.com/RobustIntelligence/terraform//rime_kube_system_helm_release?ref=2.3.X"
+  depends_on = [module.rime_eks_cluster]
 
   install_cluster_autoscaler = true
   install_metrics_server     = true
@@ -117,7 +122,7 @@ module "rime_kube_system_helm_release" {
   enable_cert_manager        = true
 
   install_external_dns = true
-  domains              = [ "" ]
+  domains              = [""]
 
   rime_version                = local.rime_version
   cluster_name                = local.cluster_name
@@ -131,8 +136,8 @@ module "rime_kube_system_helm_release" {
 }
 
 module "rime_extras_helm_release" {
-  source     = "github.com/RobustIntelligence/terraform//rime_extras_helm_release?ref=2.0.0"
-  depends_on = [ module.rime_eks_cluster ]
+  source     = "github.com/RobustIntelligence/terraform//rime_extras_helm_release?ref=2.3.X"
+  depends_on = [module.rime_eks_cluster]
 
   install_velero         = true
   velero_backup_schedule = "0 6 * * * "
