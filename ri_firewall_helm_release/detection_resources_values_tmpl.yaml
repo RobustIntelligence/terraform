@@ -1,0 +1,35 @@
+%{ if (length(datadog_tag_pod_annotation) > 0) || enable_logscale_logging ~}
+commonAnnotations:
+%{ if length(datadog_tag_pod_annotation) > 0 ~}
+  ad.datadoghq.com/tags: '${datadog_tag_pod_annotation}'
+  prometheus.io/scrape: 'true'
+  prometheus.io/port: '8080'
+%{ if enable_datadog_integration ~}
+  ad.datadoghq.com/firewall-server.checks: |
+    {
+      "robust_intelligence_ai_firewall": {
+        "init_config": {},
+        "instances": [
+          {
+            "openmetrics_endpoint": "http://%%host%%:8080/metrics"
+          }
+        ]
+      }
+    }
+%{ endif ~}
+%{ endif ~}
+%{ if enable_logscale_logging ~}
+  enable_logscale_logging: "true"
+%{ endif ~}
+%{ endif ~}
+
+secrets:
+  existingIntegrationSecretsName: ${integration_secrets_name}
+
+images:
+  modelServerImage:
+    name: "robustintelligencehq/firewall-model-server:${ri_firewall_version}"
+    pullPolicy: "${pull_policy}"
+  firewallBackendImage:
+    name: "robustintelligencehq/firewall-backend:${ri_firewall_version}"
+    pullPolicy: "${pull_policy}"
