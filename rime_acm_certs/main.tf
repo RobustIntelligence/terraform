@@ -1,6 +1,7 @@
 resource "aws_acm_certificate" "rime_domain_cert" {
-  domain_name       = var.domain
-  validation_method = "DNS"
+  domain_name               = var.domain
+  subject_alternative_names = var.subject_alternative_names
+  validation_method         = "DNS"
 
   tags = var.tags
 
