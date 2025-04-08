@@ -91,15 +91,6 @@ resource "random_password" "admin_password" {
   length = 16
 }
 
-resource "onepassword_item" "admin_user_password" {
-  vault    = "z3tkuywibmycgsbjaj2ulazsnm" # Customer Secrets Vault
-  title    = "[${var.customer_name}] Admin User Password"
-  category = "login"
-  username = var.admin_username
-  password = var.admin_password == "" ? random_password.admin_password[0].result : var.admin_password
-  tags     = ["terraform-generated"]
-}
-
 // Create application secret used by the RIME control plane
 resource "kubernetes_secret" "rime-secrets" {
   count = var.manage_namespace ? 1 : 0
@@ -123,15 +114,6 @@ resource "kubernetes_secret" "rime-secrets" {
 resource "random_password" "support_user_password" {
   count  = var.initialize_support_user ? 1 : 0
   length = 16
-}
-
-resource "onepassword_item" "support_user_password" {
-  vault    = "z3tkuywibmycgsbjaj2ulazsnm" # Customer Secrets Vault
-  title    = "[${var.customer_name}] Support User Password"
-  category = "login"
-  username = "support@robustintelligence.com"
-  password = random_password.support_user_password[0].result
-  tags     = ["terraform-generated"]
 }
 
 // Create blob store bucket and IAM permissions to upload to the blob store.
