@@ -1,8 +1,8 @@
 variable "create_managed_helm_release" {
   description = <<EOT
-  Whether to deploy a RIME Helm chart onto the provisioned infrastructure managed by Terraform.
-  Changing the state of this variable will either install/uninstall the RIME deployment
-  once the change is applied in Terraform. If you want to install the RIME package manually,
+  Whether to deploy a RI Helm chart onto the provisioned infrastructure managed by Terraform.
+  Changing the state of this variable will either install/uninstall the RI deployment
+  once the change is applied in Terraform. If you want to install the RI package manually,
   set this to false and use the generated values YAML file to deploy the release
   on the provisioned infrastructure.
   EOT
@@ -13,6 +13,7 @@ variable "create_managed_helm_release" {
 variable "datadog_api_key" {
   description = "API key for the Datadog server that will be used by the Datadog Agent."
   type        = string
+  default     = ""
   sensitive   = true
 }
 
@@ -36,7 +37,7 @@ variable "docker_registry" {
 }
 
 variable "docker_secret_name" {
-  description = "The name of the Kubernetes secret used to pull the Docker image for RIME's backend services."
+  description = "The name of the Kubernetes secret used to pull the Docker image for RI's backend services."
   type        = string
   default     = "rimecreds"
 }
@@ -57,8 +58,81 @@ variable "install_datadog" {
   default     = false
 }
 
+variable "disable_datadog_metrics" {
+  description = "Whether or not to disable Datadog metrics. Set to true when you only want to use Datadog logs."
+  type        = bool
+  default     = false
+}
+
+variable "install_prometheus_node_exporter" {
+  description = "Whether or not to install the Prometheus Node Exporter."
+  type        = bool
+  default     = false
+}
+
+variable "install_prometheus_server" {
+  description = "Whether or not to install the Prometheus Server."
+  type        = bool
+  default     = false
+}
+
+variable "install_observability_proxy_server" {
+  description = "Whether or not to install the Observability Proxy Server."
+  type        = bool
+  default     = false
+}
+
+variable "install_prometheus_cloudwatch_exporter" {
+  description = "Whether or not to install the CloudWatch Exporter."
+  type        = bool
+  default     = false
+}
+
+variable "install_ri_observability_fluent_bit" {
+  description = "Whether or not to install the RI Observability Fluent Bit helm chart for internal logging."
+  type        = bool
+  default     = false
+}
+
+variable "proxy_remote_write_url" {
+  description = "URL of the remote write endpoint in the observability proxy server. Prometheus server writes to this endpoint."
+  type        = string
+  default     = "http://observability-proxy-server:8000/remote_write"
+}
+
+variable "proxy_remote_write_port" {
+  description = "Port for remote writing to the proxy server"
+  type        = number
+  default     = 8000
+}
+
+variable "api_gateway_remote_write_url" {
+  description = "URL of the remote write endpoint in the API Gateway. The proxy server writes to this endpoint."
+  type        = string
+  default     = ""
+}
+
+variable "remote_write_secret_name" {
+  description = "Name of the Kubernetes secret that holds the API key for the Prometheus remote write endpoint."
+  type        = string
+  default     = "remote-write-api-key"
+}
+
+variable "remote_write_api_key" {
+  description = "API key for the Prometheus remote write endpoint."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "prometheus_scrape_interval" {
+  description = "How often prometheus should scrape metrics."
+  type        = string
+  default     = "60s"
+}
+
 variable "install_velero" {
-  description = "Whether or not to install Velero."
+  description = "Whether or not to install Velero. Do not enable for Firewall Deployments"
   type        = bool
   default     = false
 }
@@ -68,7 +142,7 @@ variable "manage_namespace" {
   Whether or not to manage the namespace we are installing into.
   This will create the namespace(if applicable), setup docker credentials as a
   kubernetes secret etc. Turn this flag off if you have trouble connecting to
-  k8s from your terraform environment.
+  k8s from your Terraform environment.
   EOT
   type        = bool
   default     = true
@@ -77,6 +151,14 @@ variable "manage_namespace" {
 variable "oidc_provider_url" {
   description = "URL to the OIDC provider for IAM assumable roles used by K8s."
   type        = string
+}
+
+variable "override_values_file_path" {
+  description = <<EOT
+  Optional file path to override values file for the rime-extras helm release.
+  EOT
+  type        = string
+  default     = ""
 }
 
 variable "resource_name_suffix" {
@@ -103,7 +185,12 @@ variable "rime_user" {
 }
 
 variable "rime_version" {
-  description = "The version of the RIME software to be installed."
+  description = "The version of the ri-extras package to be installed."
+  type        = string
+}
+
+variable "cluster_name" {
+  description = "Name of the cluster."
   type        = string
 }
 
@@ -122,4 +209,23 @@ variable "velero_backup_ttl" {
   description = "A suffix to name the IAM policy and role with."
   type        = string
   default     = "336h"
+}
+
+variable "install_logscale_fluentbit" {
+  description = "Whether or not to install the Logscale(Crowdstrike) fluent bit agent."
+  type        = bool
+  default     = false
+}
+
+variable "logscale_hostname" {
+  description = "Hostname of the cloud instance of the logscale server"
+  type        = string
+  default     = ""
+}
+
+variable "logscale_ingest_token" {
+  description = "Ingest token for the cloud instance of the logscale server"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
