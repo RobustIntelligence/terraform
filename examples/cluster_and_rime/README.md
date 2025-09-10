@@ -106,7 +106,7 @@ Note that in this sample template, only `rime_jwt`, `admin_username`, `admin_pas
     - (search "SSO" at https://docs.rime.dev/)
 - `smtp_email`, `smtp_password`, `smtp_server`, and `smtp_port`: SMTP configuration for email notifications
     - (search "Notifications" at https://docs.rime.dev/)
-- `datadog-api-key` and `rime-user`: DataDog API Key (will be provided by your SA) and user tag for log filtering
+- `datadog-api-key`: DataDog API Key (will be provided by your SA)
 
 ```json
 {
@@ -127,8 +127,7 @@ Note that in this sample template, only `rime_jwt`, `admin_username`, `admin_pas
   "smtp_password": "",
   "smtp_server": "",
   "smtp_port": "",
-  "datadog-api-key": "",
-  "rime-user": ""
+  "datadog-api-key": ""
 }
 ```
 
@@ -242,7 +241,7 @@ If using route53 for DNS, this module can automatically create and manage a TLS 
 
 ## License
 
-Copyright &copy; 2023 Robust Intelligence
+Copyright &copy; 2024 Robust Intelligence
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 
