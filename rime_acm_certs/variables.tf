@@ -8,6 +8,12 @@ variable "domain" {
   type        = string
 }
 
+variable "subject_alternative_names" {
+  description = "(Optional) Set of domains that should be SANs in the issued certificate."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "A map of tags to add to all resources. Tags added to launch configuration or templates override these values for ASG Tags only."
   type        = map(string)
