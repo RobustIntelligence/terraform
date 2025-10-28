@@ -13,9 +13,9 @@ variable "resource_name_suffix" {
   type        = string
 }
 
-variable "service_account_name" {
-  description = "The name of the service account to link to the IAM role"
-  type        = string
+variable "service_account_names" {
+  description = "The names of the service accounts to link to the IAM role"
+  type        = list(string)
 }
 
 variable "s3_authorized_bucket_path_arns" {
