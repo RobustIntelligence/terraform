@@ -1,6 +1,12 @@
+> [!WARNING]
+> **Starting in minor version 2.8, official support for these Terraform modules will conclude.**
+>
+> Your Solutions Architect will guide you through migrating existing resources from these modules.
+
 # Robust Intelligence Terraform Modules
 <picture>
- <source srcset="https://assets-global.website-files.com/62a7e9e01c9610dd11622fc6/62a8d4255468bd5859438043_logo-ri-white.svg">
+  <source  media="(prefers-color-scheme: dark)" srcset="https://assets-global.website-files.com/62a7e9e01c9610dd11622fc6/62a8d4255468bd5859438043_logo-ri-white.svg">
+ <source  media="(prefers-color-scheme: light)" height="70px" srcset="https://www.ai-expo.net/northamerica/wp-content/uploads/2022/07/RI-Logo-Stacked-Dark-Transparent.jpg">
  <img alt="Robust Intelligence Logo" src="YOUR-DEFAULT-IMAGE">
 </picture>
 
@@ -41,12 +47,14 @@ Detailed READMEs for each submodule are in the subfolders.
 We provide standard usage patterns in the `examples/` directory of this repository.
 
 ### Pattern 1: Application only
-In one module, deploy Robust Intelligence into a dedicated namespace of an existing Kubernetes cluster. Note that this requires you to provide your own bootstrapped Kubernetes cluster (see [rime_eks_cluster](#rime_eks_cluster) and [rime_kube_system_helm_release](#rime_kube_system_helm_release) below for details).
+In one module, deploy Robust Intelligence into a dedicated namespace of an existing Kubernetes cluster.
+Note that this requires you to provide your own bootstrapped Kubernetes cluster (see [rime_eks_cluster](#rime_eks_cluster) and [rime_kube_system_helm_release](#rime_kube_system_helm_release) below for details).
 
 **A template for this example is available at [`examples/rime`](examples/rime/).**
 
 ### Pattern 2: Cluster + Application
-In one module, deploy a bootstrapped EKS cluster, and in a second module, deploy Robust Intelligence into a dedicated namespace. This usage pattern is fully self-contained --- all Robust Intelligence dependencies can be handled with the provided modules.
+In one module, deploy a bootstrapped EKS cluster, and in a second module, deploy Robust Intelligence into a dedicated namespace.
+This usage pattern is fully self-contained --- all Robust Intelligence dependencies can be handled with the provided modules.
 
 **A template for this example is available at [`examples/cluster_and_rime`](examples/cluster_and_rime/).**
 
@@ -80,7 +88,7 @@ Provisions the following K8s services for additional functionality:
 - [Datadog Agent](https://docs.datadoghq.com/agent/) (monitoring)
 - [Velero](https://velero.io/) (disaster recovery)
 
-These services are optional; however they are strongly recommended to optimize product experience.
+These services are optional; however they are strongly recommended to optimize operational success.
 
 ### `rime_helm_release`
 Creates a Helm release for the control plane using the `rime` [Helm chart](https://github.com/RobustIntelligence/helm).
@@ -94,3 +102,18 @@ Your Robust Intelligence representative will help you determine what configurati
 
 ### `rime_acm_certs` (optional)
 If using route53 for DNS, this module will create and validate an ACM certificate for your domain.
+
+---
+
+## License
+
+Copyright &copy; 2024 Robust Intelligence
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+
+You may obtain a copy of the License at
+
+<http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and limitations under the License.
